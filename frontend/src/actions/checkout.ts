@@ -1,0 +1,394 @@
+'use server';
+
+/**
+ * Server Action : Création de session Stripe Checkout sécurisée
+ * 
+ * ⚠️ RÈGLES DE SÉCURITÉ STRICTES :
+ * - Ne JAMAIS faire confiance aux données client
+ * - Recalculer TOUS les prix depuis Supabase
+ * - Valider TOUS les inputs
+ * - Aucune logique métier côté client
+ * 
+ * FLUX :
+ * 1. Validation stricte des inputs
+ * 2. Récupération des produits depuis Supabase
+ * 3. Calcul serveur des prix (base_price + surcharge variant)
+ * 4. Création commande (orders + order_items)
+ * 5. Création session Stripe
+ * 6. Retour URL de redirection uniquement
+ */
+
+import { createServerClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
+import { 
+  stripe, 
+  calculateProductPrice, 
+  eurosToCents, 
+  ALLOWED_VARIANTS,
+  type ProductVariant 
+} from '@/lib/stripe';
+import type { 
+  CheckoutItem, 
+  CreateCheckoutSessionInput, 
+  CreateCheckoutSessionResult 
+} from '@/types/checkout';
+
+/**
+ * Valide un email de manière stricte
+ */
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 254;
+}
+
+/**
+ * Valide une variante de produit
+ */
+function isValidVariant(variant: string): variant is ProductVariant {
+  return ALLOWED_VARIANTS.includes(variant as ProductVariant);
+}
+
+/**
+ * Valide strictement tous les inputs
+ */
+function validateCheckoutInput(input: CreateCheckoutSessionInput): string | null {
+  // Validation email
+  if (!input.email || typeof input.email !== 'string') {
+    return 'Email manquant';
+  }
+  
+  if (!isValidEmail(input.email)) {
+    return 'Format d\'email invalide';
+  }
+
+  // Validation items
+  if (!input.items || !Array.isArray(input.items) || input.items.length === 0) {
+    return 'Panier vide ou invalide';
+  }
+
+  if (input.items.length > 50) {
+    return 'Trop d\'articles dans le panier (max 50)';
+  }
+
+  // Validation de chaque item
+  for (const item of input.items) {
+    if (!item.productId || typeof item.productId !== 'string') {
+      return 'ID produit manquant ou invalide';
+    }
+
+    if (!isValidVariant(item.variant)) {
+      return `Variante invalide: ${item.variant}. Valeurs autorisées: ${ALLOWED_VARIANTS.join(', ')}`;
+    }
+
+    if (typeof item.quantity !== 'number' || item.quantity < 1 || item.quantity > 100) {
+      return 'Quantité invalide (doit être entre 1 et 100)';
+    }
+
+    if (!Number.isInteger(item.quantity)) {
+      return 'La quantité doit être un nombre entier';
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Server Action : Créer une session Stripe Checkout sécurisée
+ * 
+ * @param input - Items du panier + email client
+ * @returns URL de redirection Stripe ou erreur
+ */
+export async function createStripeCheckoutSession(
+  input: CreateCheckoutSessionInput
+): Promise<CreateCheckoutSessionResult> {
+  try {
+    console.log('[CHECKOUT] 🚀 Début de création de session checkout');
+    console.log('[CHECKOUT] 📧 Email reçu:', input.email);
+    console.log('[CHECKOUT] 🛒 Items reçus:', JSON.stringify(input.items, null, 2));
+
+    // ──────────────────────────────────────────────
+    // 1️⃣ VALIDATION STRICTE DES INPUTS
+    // ──────────────────────────────────────────────
+    const validationError = validateCheckoutInput(input);
+    if (validationError) {
+      console.error('[CHECKOUT] ❌ Validation échouée:', validationError);
+      return { success: false, error: validationError };
+    }
+
+    const { items, email } = input;
+    const supabase = await createServerClient();
+
+    // ──────────────────────────────────────────────
+    // RÉCUPÉRATION UTILISATEUR AUTHENTIFIÉ
+    // ──────────────────────────────────────────────
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    console.log('[CHECKOUT] DEBUG user:', user?.id, user?.email, 'error:', userError?.message);
+
+    if (!user?.id) {
+      console.error('[CHECKOUT] ❌ Utilisateur non authentifié');
+      return { success: false, error: 'Unauthorized - Vous devez être connecté' };
+    }
+
+    // ──────────────────────────────────────────────
+    // RATE LIMITING - Protection anti-spam
+    // ──────────────────────────────────────────────
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    
+    const { count: pendingCount } = await supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .gt('created_at', tenMinutesAgo);
+
+    if (pendingCount !== null && pendingCount >= 5) {
+      return { 
+        success: false, 
+        error: 'Trop de tentatives de paiement. Réessayez dans 10 minutes.' 
+      };
+    }
+
+    // ──────────────────────────────────────────────
+    // Client Supabase ADMIN pour les opérations d'écriture
+    // ⚠️ UTILISATION STRICTEMENT LIMITÉE aux INSERT dans orders et order_items
+    // ──────────────────────────────────────────────
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[CHECKOUT] ❌ SUPABASE_SERVICE_ROLE_KEY manquante');
+      return { success: false, error: 'Configuration serveur manquante' };
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    console.log('[CHECKOUT] ✅ Client Supabase admin créé pour les opérations d\'écriture');
+
+    // ──────────────────────────────────────────────
+    // 2️⃣ RÉCUPÉRATION DES PRODUITS DEPUIS SUPABASE
+    // ──────────────────────────────────────────────
+    const uniqueProductIds = [...new Set(items.map(item => item.productId))];
+    console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs:', uniqueProductIds);
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('slug, name, base_price')
+      .in('slug', uniqueProductIds);
+
+    if (productsError) {
+      console.error('[CHECKOUT] ❌ Erreur Supabase lors de la récupération des produits:');
+      console.error('[CHECKOUT] Error object:', JSON.stringify(productsError, null, 2));
+      console.error('[CHECKOUT] Error details:', productsError);
+      return { success: false, error: 'Erreur lors de la récupération des produits' };
+    }
+
+    console.log('[CHECKOUT] ✅ Produits trouvés:', products?.length || 0);
+    console.log('[CHECKOUT] 📦 Données produits:', JSON.stringify(products, null, 2));
+
+    if (!products || products.length === 0) {
+      console.error('[CHECKOUT] ❌ Aucun produit trouvé dans Supabase');
+      console.error('[CHECKOUT] Slugs recherchés:', uniqueProductIds);
+      return { success: false, error: 'Aucun produit trouvé' };
+    }
+
+    // Vérifier que tous les produits existent
+    if (products.length !== uniqueProductIds.length) {
+      console.error('[CHECKOUT] ❌ Produits manquants');
+      console.error('[CHECKOUT] Attendus:', uniqueProductIds.length);
+      console.error('[CHECKOUT] Trouvés:', products.length);
+      console.error('[CHECKOUT] Slugs attendus:', uniqueProductIds);
+      console.error('[CHECKOUT] Slugs trouvés:', products.map(p => p.slug));
+      return { success: false, error: 'Certains produits sont introuvables' };
+    }
+
+    // ──────────────────────────────────────────────
+    // 3️⃣ CALCUL SERVEUR DES PRIX (NEVER TRUST CLIENT)
+    // ──────────────────────────────────────────────
+    const productsMap = new Map(
+      products.map(p => [p.slug, { name: p.name, basePrice: p.base_price }])
+    );
+
+    let totalAmountEuros = 0;
+    const orderItems: Array<{
+      product_id: string;
+      product_name: string;
+      variant: ProductVariant;
+      unit_price: number;
+      quantity: number;
+    }> = [];
+
+    for (const item of items) {
+      const product = productsMap.get(item.productId);
+      
+      if (!product) {
+        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', item.productId);
+        return { success: false, error: `Produit ${item.productId} introuvable` };
+      }
+
+      // Calcul serveur du prix avec surcharge variant
+      const unitPriceEuros = calculateProductPrice(product.basePrice, item.variant);
+      const lineTotalEuros = unitPriceEuros * item.quantity;
+      
+      totalAmountEuros += lineTotalEuros;
+
+      orderItems.push({
+        product_id: item.productId,
+        product_name: product.name,
+        variant: item.variant,
+        unit_price: eurosToCents(unitPriceEuros),
+        quantity: item.quantity,
+      });
+    }
+
+    const totalAmountCents = eurosToCents(totalAmountEuros);
+    console.log('[CHECKOUT] 💰 Total calculé:', totalAmountEuros, '€ (', totalAmountCents, 'centimes)');
+    console.log('[CHECKOUT] 📋 Order items préparés:', JSON.stringify(orderItems, null, 2));
+
+    // ──────────────────────────────────────────────
+    // 4️⃣ CRÉATION DE LA COMMANDE (status: pending)
+    // ⚠️ Utilisation du client ADMIN pour contourner le RLS
+    // ──────────────────────────────────────────────
+    console.log('[CHECKOUT] 💾 Tentative de création de commande dans Supabase...');
+    const orderData = {
+      user_id: user.id,
+      email_client: email.toLowerCase().trim(),
+      status: 'pending' as const,
+      total_amount: totalAmountCents,
+      stripe_session_id: null,
+    };
+    console.log('[CHECKOUT] 📝 Données commande:', JSON.stringify(orderData, null, 2));
+
+    const { data: order, error: orderError } = await supabaseAdmin
+      .from('orders')
+      .insert(orderData)
+      .select()
+      .single();
+
+    if (orderError) {
+      console.error('[CHECKOUT] ❌ ERREUR lors de la création de la commande');
+      console.error('[CHECKOUT] Error object:', JSON.stringify(orderError, null, 2));
+      console.error('[CHECKOUT] Error details:', orderError);
+      console.error('[CHECKOUT] Error code:', orderError.code);
+      console.error('[CHECKOUT] Error message:', orderError.message);
+      console.error('[CHECKOUT] Error details:', orderError.details);
+      console.error('[CHECKOUT] Error hint:', orderError.hint);
+      return { success: false, error: 'Impossible de créer la commande' };
+    }
+
+    if (!order) {
+      console.error('[CHECKOUT] ❌ Commande créée mais aucune donnée retournée');
+      return { success: false, error: 'Impossible de créer la commande' };
+    }
+
+    console.log('[CHECKOUT] ✅ Commande créée avec succès, ID:', order.id);
+
+    // Insertion des lignes de commande
+    // ⚠️ Utilisation du client ADMIN pour contourner le RLS
+    console.log('[CHECKOUT] 💾 Insertion des lignes de commande...');
+    const orderItemsToInsert = orderItems.map(item => ({
+      order_id: order.id,
+      ...item,
+    }));
+    console.log('[CHECKOUT] 📋 Order items à insérer:', JSON.stringify(orderItemsToInsert, null, 2));
+
+    const { error: itemsError } = await supabaseAdmin
+      .from('order_items')
+      .insert(orderItemsToInsert);
+
+    if (itemsError) {
+      console.error('[CHECKOUT] ❌ Erreur lors de la création des lignes de commande');
+      console.error('[CHECKOUT] Error object:', JSON.stringify(itemsError, null, 2));
+      console.error('[CHECKOUT] Error details:', itemsError);
+      
+      // Rollback : supprimer la commande
+      console.log('[CHECKOUT] 🔄 Rollback: suppression de la commande...');
+      await supabaseAdmin.from('orders').delete().eq('id', order.id);
+      return { success: false, error: 'Erreur lors de la création des lignes de commande' };
+    }
+
+    console.log('[CHECKOUT] ✅ Lignes de commande créées avec succès');
+
+    // ──────────────────────────────────────────────
+    // 5️⃣ CRÉATION SESSION STRIPE CHECKOUT
+    // ──────────────────────────────────────────────
+    console.log('[CHECKOUT] 💳 Création de la session Stripe...');
+    const lineItems = orderItems.map(item => ({
+      price_data: {
+        currency: 'eur',
+        product_data: {
+          name: `${item.product_name} (${item.variant.toUpperCase()})`,
+          description: `Licence Microsoft ${item.product_name}`,
+        },
+        unit_amount: item.unit_price,
+      },
+      quantity: item.quantity,
+    }));
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: lineItems,
+      customer_email: email.toLowerCase().trim(),
+      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+      metadata: {
+        order_id: order.id,  // snake_case pour cohérence webhook
+        user_id: user.id,
+      },
+      expires_at: Math.floor(Date.now() / 1000) + (60 * 60), // Expire après 1 heure (sécurité)
+    });
+
+    console.log('[CHECKOUT] ✅ Session Stripe créée, ID:', session.id);
+    console.log('[CHECKOUT] 🔗 URL de checkout:', session.url);
+    console.log('[CHECKOUT] 📦 Metadata envoyée:', { order_id: order.id, user_id: user.id });
+
+    // Mise à jour de la commande avec le session_id
+    // ⚠️ Utilisation du client ADMIN pour contourner le RLS
+    console.log('[CHECKOUT] 💾 Mise à jour de la commande avec session_id...');
+    const { error: updateError } = await supabaseAdmin
+      .from('orders')
+      .update({ stripe_session_id: session.id })
+      .eq('id', order.id);
+
+    if (updateError) {
+      console.error('[CHECKOUT] ❌ Erreur lors de la mise à jour de la commande');
+      console.error('[CHECKOUT] Error object:', JSON.stringify(updateError, null, 2));
+      console.error('[CHECKOUT] Error details:', updateError);
+      return { success: false, error: 'Erreur lors de la mise à jour de la commande' };
+    }
+
+    console.log('[CHECKOUT] ✅ Commande mise à jour avec session_id');
+
+    // ──────────────────────────────────────────────
+    // 6️⃣ RETOUR URL UNIQUEMENT (aucune donnée sensible)
+    // ──────────────────────────────────────────────
+    console.log('[CHECKOUT] 🎉 Session checkout créée avec succès!');
+    return {
+      success: true,
+      sessionUrl: session.url!,
+    };
+
+  } catch (error) {
+    // Log serveur détaillé
+    console.error('[CHECKOUT] ❌ ❌ ❌ ERREUR CRITIQUE ❌ ❌ ❌');
+    console.error('[CHECKOUT] Error object complet:', error);
+    console.error('[CHECKOUT] Error stringifié:', JSON.stringify(error, null, 2));
+    
+    if (error instanceof Error) {
+      console.error('[CHECKOUT] Error name:', error.name);
+      console.error('[CHECKOUT] Error message:', error.message);
+      console.error('[CHECKOUT] Error stack:', error.stack);
+    }
+    
+    return {
+      success: false,
+      error: 'Une erreur est survenue lors de la création de la session de paiement',
+    };
+  }
+}
