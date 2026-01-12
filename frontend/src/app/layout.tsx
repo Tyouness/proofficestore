@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CartProvider } from "@/context/CartContext";
 import { Toaster } from "sonner";
+import { BUSINESS_INFO, SEO_CONFIG } from "@/config/business";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +18,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AllKeyMasters - Licences Microsoft Officielles",
-  description: "Achetez vos clés Windows et Office au meilleur prix avec livraison instantanée.",
+  metadataBase: new URL(BUSINESS_INFO.website),
+  title: {
+    default: SEO_CONFIG.defaultTitle,
+    template: `%s | ${BUSINESS_INFO.companyName}`,
+  },
+  description: SEO_CONFIG.defaultDescription,
+  keywords: SEO_CONFIG.keywords,
+  authors: [{ name: BUSINESS_INFO.companyName }],
+  creator: BUSINESS_INFO.companyName,
+  publisher: BUSINESS_INFO.companyName,
+  openGraph: {
+    type: 'website',
+    locale: 'fr_FR',
+    url: BUSINESS_INFO.website,
+    siteName: BUSINESS_INFO.companyName,
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.defaultDescription,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SEO_CONFIG.defaultTitle,
+    description: SEO_CONFIG.defaultDescription,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

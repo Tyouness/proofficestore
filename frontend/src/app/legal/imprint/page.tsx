@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BUSINESS_INFO } from '@/config/business';
 
 export default function ImprintPage() {
   return (
@@ -13,35 +14,34 @@ export default function ImprintPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Éditeur du site</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'entreprise :</strong> [NOM_ENTREPRISE]<br />
-                <strong>Forme juridique :</strong> [FORME_JURIDIQUE]<br />
-                <strong>Capital social :</strong> [CAPITAL_SOCIAL]<br />
-                <strong>SIRET :</strong> [SIRET]<br />
-                <strong>Numéro de TVA intracommunautaire :</strong> [TVA_INTRA]<br />
-                <strong>Adresse du siège social :</strong> [ADRESSE]<br />
-                <strong>Email :</strong> [EMAIL_CONTACT]<br />
-                <strong>Téléphone :</strong> [TELEPHONE]
+                <strong>Nom de l'entreprise :</strong> {BUSINESS_INFO.companyName}<br />
+                <strong>Adresse du siège social :</strong> {BUSINESS_INFO.address}<br />
+                <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a><br />
+                <strong>Téléphone :</strong> <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a><br />
+                <strong>Site web :</strong> <a href={BUSINESS_INFO.website} className="text-blue-600 hover:underline">{BUSINESS_INFO.website}</a>
+              </p>
+              <p className="text-gray-700 leading-relaxed mt-4">
+                <strong>Nature de l'activité :</strong> Vente de produits numériques (clés de licences logicielles)
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Directeur de la publication</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom :</strong> [NOM_DIRECTEUR]<br />
-                <strong>Qualité :</strong> [QUALITE_DIRECTEUR] (Gérant, Président, etc.)
+                Le directeur de la publication est le représentant légal de {BUSINESS_INFO.companyName}.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Hébergement</h2>
               <p className="text-gray-700 leading-relaxed mb-3">
-                Le site AllKeyMasters est hébergé par :
+                Le site {BUSINESS_INFO.companyName} est hébergé par :
               </p>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'hébergeur :</strong> [HEBERGEUR]<br />
-                <strong>Adresse :</strong> [ADRESSE_HEBERGEUR]<br />
-                <strong>Site web :</strong> <a href="[URL_HEBERGEUR]" target="_blank" rel="noopener noreferrer" 
-                className="text-blue-600 hover:underline">[URL_HEBERGEUR]</a>
+                <strong>Nom de l'hébergeur :</strong> Vercel Inc.<br />
+                <strong>Adresse :</strong> 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis<br />
+                <strong>Site web :</strong> <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" 
+                className="text-blue-600 hover:underline">vercel.com</a>
               </p>
             </section>
 
@@ -49,11 +49,15 @@ export default function ImprintPage() {
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Propriété intellectuelle</h2>
               <p className="text-gray-700 leading-relaxed">
                 L'ensemble du contenu de ce site (textes, images, logos, graphismes, etc.) est la propriété 
-                exclusive de <strong>[NOM_ENTREPRISE]</strong>, sauf mention contraire.
+                exclusive de <strong>{BUSINESS_INFO.companyName}</strong>, sauf mention contraire.
               </p>
               <p className="text-gray-700 leading-relaxed">
                 Toute reproduction, distribution ou utilisation non autorisée de ce contenu est strictement 
                 interdite et peut entraîner des poursuites judiciaires.
+              </p>
+              <p className="text-gray-700 leading-relaxed mt-3">
+                Les marques Microsoft, Windows, Office et leurs logos sont des marques déposées de Microsoft Corporation. 
+                {BUSINESS_INFO.companyName} est revendeur indépendant et n'est pas affilié à Microsoft Corporation.
               </p>
             </section>
 

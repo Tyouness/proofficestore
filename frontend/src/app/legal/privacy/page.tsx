@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BUSINESS_INFO } from '@/config/business';
 
 export default function PrivacyPage() {
   return (
@@ -13,8 +14,8 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>[NOM_ENTREPRISE]</strong> (ci-après "nous", "notre", "AllKeyMasters") s'engage à 
-                protéger la confidentialité de vos données personnelles.
+                <strong>{BUSINESS_INFO.companyName}</strong> s'engage à protéger la confidentialité de vos données personnelles 
+                conformément au Règlement Général sur la Protection des Données (RGPD).
               </p>
               <p className="text-gray-700 leading-relaxed">
                 Cette politique décrit les types de données que nous collectons, comment nous les utilisons, 
@@ -25,10 +26,10 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Responsable du traitement</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'entreprise :</strong> [NOM_ENTREPRISE]<br />
-                <strong>Adresse :</strong> [ADRESSE_ENTREPRISE]<br />
-                <strong>Email :</strong> [EMAIL_CONTACT]<br />
-                <strong>DPO (Délégué à la Protection des Données) :</strong> [CONTACT_DPO]
+                <strong>Nom de l'entreprise :</strong> {BUSINESS_INFO.companyName}<br />
+                <strong>Adresse :</strong> {BUSINESS_INFO.address}<br />
+                <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a><br />
+                <strong>Téléphone :</strong> <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a>
               </p>
             </section>
 

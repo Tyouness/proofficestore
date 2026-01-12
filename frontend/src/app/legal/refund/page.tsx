@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BUSINESS_INFO } from '@/config/business';
 
 export default function RefundPage() {
   return (
@@ -13,8 +14,13 @@ export default function RefundPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Principe général</h2>
               <p className="text-gray-700 leading-relaxed">
-                AllKeyMasters commercialise des produits numériques (clés de licence logicielle) livrés 
-                instantanément de manière dématérialisée.
+                {BUSINESS_INFO.companyName} commercialise exclusivement des <strong>produits numériques</strong> (clés de licence logicielle) 
+                livrés instantanément de manière dématérialisée.
+              </p>
+              <p className="text-gray-700 leading-relaxed mt-3 bg-yellow-50 border-l-4 border-yellow-600 p-4">
+                <strong>⚠️ Important :</strong> Conformément à l'article L221-28 du Code de la Consommation, 
+                le droit de rétractation ne s'applique pas aux contenus numériques livrés immédiatement 
+                après votre accord exprès et votre renonciation au droit de rétractation.
               </p>
               <p className="text-gray-700 leading-relaxed">
                 En raison de la nature numérique des produits et de leur livraison immédiate, les remboursements 
@@ -105,7 +111,12 @@ export default function RefundPage() {
                 </li>
               </ol>
               <p className="text-gray-700 leading-relaxed mt-3">
-                Notre équipe examinera votre demande et vous répondra sous <strong>[DELAI_REPONSE]</strong> jours ouvrables.
+                Notre équipe examinera votre demande et vous répondra sous <strong>48 heures</strong> (jours ouvrables).
+              </p>
+              <p className="text-gray-700 leading-relaxed mt-3">
+                <strong>Contact support :</strong><br />
+                📧 Email : <a href={`mailto:${BUSINESS_INFO.support.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.support.email}</a><br />
+                ⏰ Disponibilité : {BUSINESS_INFO.support.hours}
               </p>
             </section>
 
@@ -119,6 +130,7 @@ export default function RefundPage() {
                 <li>Assistance à l'activation (activation par téléphone Microsoft, etc.)</li>
                 <li>Remplacement de la clé si elle est défectueuse</li>
                 <li>Guide d'installation détaillé</li>
+                <li>Support technique personnalisé via l'espace client</li>
               </ul>
               <p className="text-gray-700 leading-relaxed mt-3">
                 Le remboursement n'est envisagé qu'en dernier recours, si aucune solution technique n'est possible.
@@ -132,11 +144,12 @@ export default function RefundPage() {
               </p>
               <ul className="list-disc pl-6 space-y-2 text-gray-700 mt-3">
                 <li>
-                  Nous procédons au remboursement dans un délai de <strong>[DELAI_REMBOURSEMENT]</strong> jours 
+                  Nous procédons au remboursement dans un délai de <strong>5 à 7 jours</strong> 
                   ouvrables après validation
                 </li>
                 <li>
-                  Le remboursement est effectué sur le même moyen de paiement que celui utilisé pour l'achat
+                  Le remboursement est effectué sur le même moyen de paiement que celui utilisé pour l'achat 
+                  (via Stripe)
                 </li>
                 <li>
                   Selon votre banque, le crédit peut prendre <strong>3 à 10 jours ouvrables</strong> supplémentaires 
