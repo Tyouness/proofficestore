@@ -335,8 +335,8 @@ export async function createStripeCheckoutSession(
       payment_method_types: ['card'],
       line_items: lineItems,
       customer_email: email.toLowerCase().trim(),
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
       metadata: {
         order_id: order.id,  // snake_case pour cohérence webhook
         user_id: user.id,
