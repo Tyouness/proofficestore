@@ -1,0 +1,288 @@
+import { notFound } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
+import Image from 'next/image';
+import { Metadata } from 'next';
+import ProductActions from '@/components/ProductActions';
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+interface Product {
+  id: string;
+  slug: string;
+  name: string;
+  family: string;
+  version: string;
+  edition: string;
+  delivery_type: string;
+  description: string;
+  long_description: string;
+  base_price: number;
+  image_url: string;
+  is_featured: boolean;
+  is_active: boolean;
+}
+
+interface PageProps {
+  params: {
+    slug: string;
+  };
+}
+
+async function getProduct(slug: string): Promise<Product | null> {
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single();
+
+  if (error || !data) return null;
+  return data as Product;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const product = await getProduct(params.slug);
+
+  if (!product) {
+    return {
+      title: 'Produit introuvable | AllKeyMasters',
+    };
+  }
+
+  return {
+    title: `${product.name} | AllKeyMasters`,
+    description: product.description,
+  };
+}
+
+const DELIVERY_TYPE_LABELS: Record<string, { label: string; icon: string; description: string }> = {
+  digital_key: {
+    label: 'Clé Numérique',
+    icon: '⚡',
+    description: 'Livraison instantanée par email'
+  },
+  dvd: {
+    label: 'DVD',
+    icon: '💿',
+    description: 'Support physique livré sous 3-5 jours'
+  },
+  usb: {
+    label: 'Clé USB',
+    icon: '🔌',
+    description: 'Support USB bootable livré sous 3-5 jours'
+  },
+};
+
+const FAMILY_LABELS: Record<string, string> = {
+  windows: 'Windows',
+  office: 'Microsoft Office',
+};
+
+const EDITION_LABELS: Record<string, string> = {
+  pro: 'Professionnel',
+  professional_plus: 'Professional Plus',
+  home_student: 'Famille et Étudiant',
+  home_business: 'Famille et Petite Entreprise',
+};
+
+export default async function ProductPage({ params }: PageProps) {
+  const product = await getProduct(params.slug);
+
+  if (!product) {
+    notFound();
+  }
+
+  const deliveryInfo = DELIVERY_TYPE_LABELS[product.delivery_type] || {
+    label: product.delivery_type,
+    icon: '📦',
+    description: 'Livraison standard'
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Breadcrumb */}
+        <nav className="mb-8 text-sm">
+          <ol className="flex items-center space-x-2 text-gray-600">
+            <li>
+              <a href="/" className="hover:text-blue-600">Accueil</a>
+            </li>
+            <li>/</li>
+            <li>
+              <a href="/logiciels" className="hover:text-blue-600">Logiciels</a>
+            </li>
+            <li>/</li>
+            <li className="text-gray-900 font-medium">{product.name}</li>
+          </ol>
+        </nav>
+
+        {/* Product Section */}
+        <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+          <div className="grid md:grid-cols-2 gap-8 p-8">
+            {/* Image */}
+            <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+              <Image
+                src={product.image_url || '/images/placeholder-product.jpg'}
+                alt={product.name}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
+              />
+            </div>
+
+            {/* Product Info */}
+            <div className="flex flex-col">
+              <div className="mb-2">
+                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                  {FAMILY_LABELS[product.family] || product.family}
+                </span>
+              </div>
+
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                {product.name}
+              </h1>
+
+              <p className="text-gray-600 mb-6">
+                {product.description}
+              </p>
+
+              {/* Price */}
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-4xl font-bold text-gray-900">
+                    {product.base_price.toFixed(2)} €
+                  </span>
+                  <span className="ml-2 text-gray-500">TTC</span>
+                </div>
+              </div>
+
+              {/* Delivery Type */}
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <div className="flex items-center">
+                  <span className="text-2xl mr-3">{deliveryInfo.icon}</span>
+                  <div>
+                    <p className="font-semibold text-gray-900">{deliveryInfo.label}</p>
+                    <p className="text-sm text-gray-600">{deliveryInfo.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Specifications */}
+              <div className="mb-6 border-t border-b border-gray-200 py-4">
+                <h3 className="font-semibold text-gray-900 mb-3">Caractéristiques</h3>
+                <dl className="space-y-2">
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Version:</dt>
+                    <dd className="font-medium text-gray-900">{product.version}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Édition:</dt>
+                    <dd className="font-medium text-gray-900">
+                      {EDITION_LABELS[product.edition] || product.edition}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-600">Type de licence:</dt>
+                    <dd className="font-medium text-gray-900">Perpétuelle</dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Add to Cart Button */}
+              <ProductActions 
+                productId={product.id} 
+                productName={product.name} 
+                basePrice={product.base_price} 
+              />
+
+              {/* Trust Badges */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl mb-1">✓</div>
+                    <p className="text-xs text-gray-600">100% Légal</p>
+                  </div>
+                  <div>
+                    <div className="text-2xl mb-1">🔒</div>
+                    <p className="text-xs text-gray-600">Paiement Sécurisé</p>
+                  </div>
+                  <div>
+                    <div className="text-2xl mb-1">📧</div>
+                    <p className="text-xs text-gray-600">Support 7j/7</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Long Description */}
+          <div className="border-t border-gray-200 p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Description détaillée</h2>
+            <div className="prose max-w-none text-gray-600">
+              <p>{product.long_description}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="mt-8 bg-white rounded-lg shadow-sm p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Questions Fréquentes</h2>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                Comment vais-je recevoir ma licence ?
+              </h3>
+              <p className="text-gray-600">
+                {product.delivery_type === 'digital_key'
+                  ? 'Votre clé d\'activation vous sera envoyée par email immédiatement après validation du paiement. Vous pourrez également la retrouver dans votre compte client.'
+                  : 'Votre support physique sera expédié sous 24h. Vous recevrez un email de confirmation avec le numéro de suivi.'}
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                Sur combien d'appareils puis-je installer cette licence ?
+              </h3>
+              <p className="text-gray-600">
+                Cette licence est valable pour 1 PC. Pour installer sur plusieurs appareils, vous devez acheter plusieurs licences.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                La licence est-elle perpétuelle ?
+              </h3>
+              <p className="text-gray-600">
+                Oui, toutes nos licences sont perpétuelles. Vous ne payez qu'une seule fois et pouvez utiliser le logiciel indéfiniment.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                Puis-je obtenir un remboursement ?
+              </h3>
+              <p className="text-gray-600">
+                Les clés numériques ne peuvent pas être remboursées une fois livrées, sauf en cas de clé défectueuse. Consultez nos{' '}
+                <a href="/legal/refund" className="text-blue-600 hover:text-blue-700">conditions de remboursement</a> pour plus de détails.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">
+                Dois-je avoir une connexion Internet pour activer la licence ?
+              </h3>
+              <p className="text-gray-600">
+                Oui, une connexion Internet est nécessaire pour activer votre licence Microsoft. Après activation, vous pourrez utiliser le logiciel hors ligne.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
