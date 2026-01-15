@@ -26,7 +26,13 @@ interface Product {
 }
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
+    family?: string;
+    delivery_type?: string;
+    version?: string;
+    edition?: string;
+    search?: string;
+  }> | {
     family?: string;
     delivery_type?: string;
     version?: string;
@@ -40,7 +46,13 @@ export const metadata = {
   description: 'Découvrez notre catalogue complet de licences Windows et Office. Livraison instantanée, prix compétitifs.',
 };
 
-async function getProducts(filters: PageProps['searchParams']) {
+async function getProducts(filters: {
+  family?: string;
+  delivery_type?: string;
+  version?: string;
+  edition?: string;
+  search?: string;
+}) {
   let query = supabaseAdmin
     .from('products')
     .select('*')
@@ -91,7 +103,14 @@ async function getFilterOptions() {
 }
 
 export default async function LogicielsPage({ searchParams }: PageProps) {
-  const products = await getProducts(searchParams);
+  // Résoudre searchParams si c'est une Promise (Next.js 15+)
+  const resolvedSearchParams = searchParams instanceof Promise 
+    ? await searchParams 
+    : searchParams;
+  
+  console.log('[LOGICIELS] Filtres actifs:', resolvedSearchParams);
+    
+  const products = await getProducts(resolvedSearchParams);
   const filterOptions = await getFilterOptions();
 
   return (
@@ -114,7 +133,7 @@ export default async function LogicielsPage({ searchParams }: PageProps) {
             versions={filterOptions.versions}
             editions={filterOptions.editions}
             deliveryTypes={filterOptions.deliveryTypes}
-            currentFilters={searchParams}
+            currentFilters={resolvedSearchParams}
           />
         </Suspense>
 
