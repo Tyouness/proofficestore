@@ -39,33 +39,59 @@ export default function ReviewForm({
     setIsSubmitting(true);
     setError('');
 
+    // Log de debug (sans données sensibles)
+    console.log('[Review Submit] Starting', { 
+      product_id: productId, 
+      order_id: orderId, 
+      rating,
+      has_comment: !!comment.trim()
+    });
+
     try {
-      const { error: insertError } = await supabase
+      const { data, error: insertError } = await supabase
         .from('reviews')
         .insert({
           product_id: productId,
           order_id: orderId,
           rating,
           comment: comment.trim() || null,
-        });
+        })
+        .select();
 
       if (insertError) {
-        // Erreur de contrainte unique
+        // Log technique (pas affiché à l'utilisateur)
+        console.error('[Review Submit] Insert failed', {
+          code: insertError.code,
+          message: insertError.message,
+          hint: insertError.hint,
+        });
+
+        // Messages user-friendly basés sur le code d'erreur
         if (insertError.code === '23505') {
-          setError('Vous avez déjà noté ce produit pour cette commande.');
+          // Contrainte unique violée
+          setError('Vous avez déjà laissé un avis pour cette commande.');
+        } else if (insertError.code === '42501' || insertError.message?.includes('policy')) {
+          // Erreur RLS / unauthorized
+          setError('Vous devez avoir acheté ce produit pour laisser un avis.');
+        } else if (insertError.code === '23503') {
+          // Foreign key violation
+          setError('Produit ou commande invalide. Contactez le support.');
         } else {
-          setError('Erreur lors de l\'envoi de votre avis. Veuillez réessayer.');
+          // Erreur générique
+          setError('Une erreur est survenue. Réessayez dans quelques instants.');
         }
-        console.error('Insert review error:', insertError);
       } else {
+        // Succès
+        console.log('[Review Submit] Success', { review_id: data?.[0]?.id });
         setSuccess(true);
         setTimeout(() => {
           window.location.reload();
         }, 1500);
       }
     } catch (err) {
-      console.error('Submit review error:', err);
-      setError('Une erreur est survenue. Veuillez réessayer.');
+      // Erreur réseau ou autre erreur non Supabase
+      console.error('[Review Submit] Unexpected error', err);
+      setError('Une erreur est survenue. Vérifiez votre connexion et réessayez.');
     } finally {
       setIsSubmitting(false);
     }
