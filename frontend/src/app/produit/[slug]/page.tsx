@@ -64,13 +64,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const productUrl = `https://www.allkeymasters.com/produit/${product.slug}`;
+  
+  // Description SEO optimisée (160 caractères max)
+  const seoDescription = product.delivery_type === 'digital_key'
+    ? `${product.name} - Clé d'activation officielle. Licence perpétuelle, activation immédiate, prix compétitif. Livraison instantanée.`
+    : `${product.name} - Licence perpétuelle Microsoft. Support physique ${DELIVERY_TYPE_LABELS[product.delivery_type]?.label}. Livraison rapide.`;
 
   return {
-    title: product.name,
-    description: product.description,
+    title: `${product.name} – ${DELIVERY_TYPE_LABELS[product.delivery_type]?.label || 'Licence'}`,
+    description: seoDescription.slice(0, 160),
     openGraph: {
-      title: product.name,
-      description: product.description,
+      title: `${product.name} | AllKeyMasters`,
+      description: seoDescription.slice(0, 160),
       url: productUrl,
       siteName: 'AllKeyMasters',
       images: product.image_url ? [
@@ -78,7 +83,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           url: product.image_url,
           width: 1200,
           height: 630,
-          alt: product.name,
+          alt: `${product.name} - Licence Microsoft Officielle`,
         },
       ] : [],
       type: 'website',
@@ -139,8 +144,9 @@ export default async function ProductPage({ params }: PageProps) {
     '@type': 'Product',
     name: product.name,
     description: product.description,
-    image: product.image_url,
+    image: product.image_url || 'https://www.allkeymasters.com/images/default-product.jpg',
     sku: product.slug,
+    category: FAMILY_LABELS[product.family] || product.family,
     brand: {
       '@type': 'Brand',
       name: 'Microsoft',
@@ -149,14 +155,15 @@ export default async function ProductPage({ params }: PageProps) {
       '@type': 'Offer',
       url: `https://www.allkeymasters.com/produit/${product.slug}`,
       priceCurrency: 'EUR',
-      price: product.base_price,
+      price: product.base_price.toFixed(2),
       availability: 'https://schema.org/InStock',
+      priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       seller: {
         '@type': 'Organization',
         name: 'AllKeyMasters',
+        url: 'https://www.allkeymasters.com',
       },
     },
-    additionalType: 'https://schema.org/SoftwareApplication',
   };
 
   return (
@@ -264,21 +271,25 @@ export default async function ProductPage({ params }: PageProps) {
                 basePrice={product.base_price} 
               />
 
-              {/* Trust Badges */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl mb-1">✓</div>
-                    <p className="text-xs text-gray-600">100% Légal</p>
-                  </div>
-                  <div>
-                    <div className="text-2xl mb-1">🔒</div>
-                    <p className="text-xs text-gray-600">Paiement Sécurisé</p>
-                  </div>
-                  <div>
-                    <div className="text-2xl mb-1">📧</div>
-                    <p className="text-xs text-gray-600">Support 7j/7</p>
-                  </div>
+              {/* Réassurance sous le CTA */}
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center text-sm text-gray-700">
+                  <svg className="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium">Licence perpétuelle</span> - À vie, sans abonnement
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <svg className="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="font-medium">Accès immédiat</span> après validation du paiement
+                </div>
+                <div className="flex items-center text-sm text-gray-700">
+                  <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span className="font-medium">Support client</span> dédié 7j/7
                 </div>
               </div>
             </div>
