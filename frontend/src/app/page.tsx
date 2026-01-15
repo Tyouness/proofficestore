@@ -2,6 +2,9 @@ import Hero from "@/components/Hero";
 import ProductCard from "@/components/ProductCard";
 import { createServerClient } from '@/lib/supabase-server';
 
+// ISR: Revalider la page toutes les heures
+export const revalidate = 3600;
+
 export default async function Home() {
   const supabase = await createServerClient();
   

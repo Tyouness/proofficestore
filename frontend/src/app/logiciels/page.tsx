@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 import ProductCard from '@/components/ProductCard';
 import CatalogFilters from './CatalogFilters';
 
+// ISR: Revalider la page toutes les heures
+export const revalidate = 3600;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,

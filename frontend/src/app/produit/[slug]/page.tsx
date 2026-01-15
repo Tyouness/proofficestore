@@ -4,6 +4,9 @@ import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 
+// ISR: Revalider la page toutes les heures
+export const revalidate = 3600;
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -49,13 +52,37 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   if (!product) {
     return {
-      title: 'Produit introuvable | AllKeyMasters',
+      title: 'Produit introuvable',
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
+  const productUrl = `https://www.allkeymasters.com/produit/${product.slug}`;
+
   return {
-    title: `${product.name} | AllKeyMasters`,
+    title: product.name,
     description: product.description,
+    openGraph: {
+      title: product.name,
+      description: product.description,
+      url: productUrl,
+      siteName: 'AllKeyMasters',
+      images: product.image_url ? [
+        {
+          url: product.image_url,
+          width: 1200,
+          height: 630,
+          alt: product.name,
+        },
+      ] : [],
+      type: 'website',
+    },
+    alternates: {
+      canonical: productUrl,
+    },
   };
 }
 
@@ -102,8 +129,41 @@ export default async function ProductPage({ params }: PageProps) {
     description: 'Livraison standard'
   };
 
+  // JSON-LD Schema pour SEO
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description,
+    image: product.image_url,
+    sku: product.slug,
+    brand: {
+      '@type': 'Brand',
+      name: 'Microsoft',
+    },
+    offers: {
+      '@type': 'Offer',
+      url: `https://www.allkeymasters.com/produit/${product.slug}`,
+      priceCurrency: 'EUR',
+      price: product.base_price,
+      availability: 'https://schema.org/InStock',
+      seller: {
+        '@type': 'Organization',
+        name: 'AllKeyMasters',
+      },
+    },
+    additionalType: 'https://schema.org/SoftwareApplication',
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <>
+      {/* JSON-LD Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      
+      <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm">
@@ -284,5 +344,6 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }
