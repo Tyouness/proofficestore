@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
+import ReviewForm from './ReviewForm';
 
 export default async function AccountPage() {
   const supabase = await createServerClient();
@@ -49,6 +50,26 @@ export default async function AccountPage() {
   if (licensesError) {
     console.error('[ACCOUNT] Erreur licenses:', licensesError);
   }
+
+  // Récupérer les avis existants pour cet utilisateur
+  const { data: existingReviews, error: reviewsError } = orderIds.length > 0
+    ? await supabase
+        .from('reviews')
+        .select('order_id, product_id, rating, comment, created_at')
+        .eq('user_id', user.id)
+        .in('order_id', orderIds)
+    : { data: [], error: null };
+
+  if (reviewsError) {
+    console.error('[ACCOUNT] Erreur reviews:', reviewsError);
+  }
+
+  // Créer un mapping order_id + product_id → review
+  const reviewMap = new Map<string, any>();
+  existingReviews?.forEach((review: any) => {
+    const key = `${review.order_id}-${review.product_id}`;
+    reviewMap.set(key, review);
+  });
 
   // Créer un mapping order_id + product_id → ARRAY de license_keys (supporter quantity > 1)
   const licenseMap = new Map<string, string[]>();
@@ -120,6 +141,7 @@ export default async function AccountPage() {
                 <div className="p-6 space-y-4">
                   {order.order_items?.map((item: any, idx: number) => {
                     const licenseKeys = licenseMap.get(`${order.id}-${item.product_id}`) || [];
+                    const existingReview = reviewMap.get(`${order.id}-${item.product_id}`);
                     
                     return (
                       <div
@@ -210,6 +232,14 @@ export default async function AccountPage() {
                                 </div>
                               </div>
                             </details>
+
+                            {/* Formulaire d'avis */}
+                            <ReviewForm
+                              orderId={order.id}
+                              productId={item.product_id}
+                              productName={item.product_name}
+                              existingReview={existingReview}
+                            />
                           </div>
                         ) : (
                           <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
