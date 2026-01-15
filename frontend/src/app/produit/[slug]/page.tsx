@@ -30,7 +30,9 @@ interface Product {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
+    slug: string;
+  }> | {
     slug: string;
   };
 }
@@ -48,7 +50,8 @@ async function getProduct(slug: string): Promise<Product | null> {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const product = await getProduct(params.slug);
+  const resolvedParams = params instanceof Promise ? await params : params;
+  const product = await getProduct(resolvedParams.slug);
 
   if (!product) {
     return {
@@ -117,7 +120,8 @@ const EDITION_LABELS: Record<string, string> = {
 };
 
 export default async function ProductPage({ params }: PageProps) {
-  const product = await getProduct(params.slug);
+  const resolvedParams = params instanceof Promise ? await params : params;
+  const product = await getProduct(resolvedParams.slug);
 
   if (!product) {
     notFound();
