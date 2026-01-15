@@ -22,21 +22,28 @@ type AssignLicensesResult = number;
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
+  console.log('[WEBHOOK] 🎯 Webhook appelé - Début du traitement');
+  
   try {
     // Validation signature Stripe
     const rawBody = await req.text();
     const signature = req.headers.get('stripe-signature');
 
+    console.log('[WEBHOOK] 📝 Signature présente:', !!signature);
+    console.log('[WEBHOOK] 🔑 Secret configuré:', !!process.env.STRIPE_WEBHOOK_SECRET);
+    console.log('[WEBHOOK] 🔑 Secret (premiers chars):', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 15) + '...');
+
     if (!signature || !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.error('[WEBHOOK] Signature ou secret manquant');
+      console.error('[WEBHOOK] ❌ Signature ou secret manquant');
       return NextResponse.json({ error: 'Configuration invalide' }, { status: 400 });
     }
 
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
+      console.log('[WEBHOOK] ✅ Signature valide - Type:', event.type);
     } catch (err: any) {
-      console.error('[WEBHOOK] Signature invalide:', err.message);
+      console.error('[WEBHOOK] ❌ Signature invalide:', err.message);
       return NextResponse.json({ error: 'Signature invalide' }, { status: 400 });
     }
 
