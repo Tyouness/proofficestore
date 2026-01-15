@@ -44,16 +44,7 @@ export async function middleware(request: NextRequest) {
 
   // Rafraîchir la session (si nécessaire)
   // Cela maintient l'utilisateur connecté même après un retour de Stripe
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Log pour débogage (à supprimer en production)
-  if (user) {
-    console.log('[MIDDLEWARE] ✅ Session active:', user.email);
-  } else {
-    console.log('[MIDDLEWARE] ⚠️ Aucune session active');
-  }
+  await supabase.auth.getUser();
 
   return supabaseResponse;
 }

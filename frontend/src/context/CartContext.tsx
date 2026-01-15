@@ -54,6 +54,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Chargement depuis localStorage (ONCE)
   // ──────────────────────────────────────────────
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
@@ -65,18 +67,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoaded(true);
     }
-  }, []);
+  }, []); // Dépendances vides = exécution unique
 
   // ──────────────────────────────────────────────
   // Sauvegarde dans localStorage (à chaque changement)
   // ──────────────────────────────────────────────
   useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-      } catch (error) {
-        console.error('[CART] Erreur lors de la sauvegarde:', error);
-      }
+    if (!isLoaded || typeof window === 'undefined') return;
+    
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.error('[CART] Erreur lors de la sauvegarde:', error);
     }
   }, [items, isLoaded]);
 

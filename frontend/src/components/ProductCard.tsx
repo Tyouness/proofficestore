@@ -1,22 +1,93 @@
 import Link from 'next/link';
 
-export default function ProductCard({ id, title, price, category }: any) {
-  return (
-    <Link href={`/product/${id}`} className="group block">
-      <div className="bg-[#f5f5f7] rounded-3xl p-8 h-[400px] flex flex-col items-center justify-between transition-transform duration-500 group-hover:scale-[1.02]">
-        <div className="text-center">
-          <span className="text-[12px] font-bold text-blue-600 uppercase tracking-widest">{category}</span>
-          <h3 className="mt-2 text-2xl font-semibold text-gray-900 leading-tight">{title}</h3>
-        </div>
-        
-        {/* Ici on mettra une belle image plus tard */}
-        <div className="w-full h-32 bg-gradient-to-t from-gray-200 to-transparent rounded-xl opacity-50"></div>
+interface Product {
+  id: string;
+  slug: string;
+  name: string;
+  family: string;
+  version?: string;
+  edition?: string;
+  delivery_type: string;
+  description?: string;
+  base_price: number;
+  image_url?: string;
+}
 
-        <div className="text-center">
-          <p className="text-lg font-medium text-gray-500">Dès {price} €</p>
-          <span className="mt-4 inline-block bg-white text-black border border-black/10 px-6 py-2 rounded-full text-sm font-semibold group-hover:bg-black group-hover:text-white transition-all">
-            Découvrir
-          </span>
+const DELIVERY_TYPE_LABELS: Record<string, string> = {
+  digital_key: 'Clé Numérique',
+  dvd: 'DVD',
+  usb: 'Clé USB',
+};
+
+const FAMILY_LABELS: Record<string, string> = {
+  windows: 'Windows',
+  office: 'Office',
+};
+
+export default function ProductCard({ product }: { product: Product }) {
+  const deliveryLabel = DELIVERY_TYPE_LABELS[product.delivery_type] || product.delivery_type;
+  const familyLabel = FAMILY_LABELS[product.family] || product.family;
+
+  return (
+    <Link href={`/produit/${product.slug}`} className="group block">
+      <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full flex flex-col">
+        {/* Image */}
+        {product.image_url ? (
+          <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
+            <img 
+              src={product.image_url} 
+              alt={product.name}
+              className="w-full h-full object-contain p-4"
+            />
+          </div>
+        ) : (
+          <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center">
+            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="p-5 flex flex-col flex-grow">
+          {/* Badge famille */}
+          <div className="mb-2">
+            <span className="inline-block px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50 rounded">
+              {familyLabel}
+            </span>
+          </div>
+
+          {/* Nom */}
+          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2 flex-grow group-hover:text-blue-600 transition-colors">
+            {product.name}
+          </h3>
+
+          {/* Description */}
+          {product.description && (
+            <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+              {product.description}
+            </p>
+          )}
+
+          {/* Type de livraison */}
+          <div className="flex items-center text-sm text-gray-500 mb-4">
+            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+            </svg>
+            {deliveryLabel}
+          </div>
+
+          {/* Prix et CTA */}
+          <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
+            <div>
+              <div className="text-2xl font-bold text-gray-900">
+                {product.base_price.toFixed(2)} €
+              </div>
+            </div>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+              Voir
+            </button>
+          </div>
         </div>
       </div>
     </Link>

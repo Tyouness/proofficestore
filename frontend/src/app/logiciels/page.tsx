@@ -31,6 +31,7 @@ interface PageProps {
     delivery_type?: string;
     version?: string;
     edition?: string;
+    search?: string;
   };
 }
 
@@ -56,6 +57,9 @@ async function getProducts(filters: PageProps['searchParams']) {
   }
   if (filters.edition) {
     query = query.eq('edition', filters.edition);
+  }
+  if (filters.search) {
+    query = query.ilike('name', `%${filters.search}%`);
   }
 
   const { data, error } = await query.order('family', { ascending: true })

@@ -16,7 +16,7 @@ export default function Header() {
         
         {/* Navigation Centrale */}
         <nav className="hidden md:flex items-center space-x-8 text-[13px] font-medium text-gray-600">
-          <Link href="/#products" className="hover:text-black transition-colors">Logiciels</Link>
+          <Link href="/logiciels" className="hover:text-black transition-colors">Logiciels</Link>
           <Link href="/support" className="hover:text-black transition-colors">Support</Link>
         </nav>
 
