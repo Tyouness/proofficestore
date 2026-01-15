@@ -138,13 +138,15 @@ export default async function ProductPage({ params }: PageProps) {
     description: 'Livraison standard'
   };
 
-  // JSON-LD Schema pour SEO
+  // JSON-LD Schema pour SEO (optimisé Google Rich Results)
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     description: product.description,
-    image: product.image_url || 'https://www.allkeymasters.com/images/default-product.jpg',
+    image: product.image_url?.startsWith('http') 
+      ? product.image_url 
+      : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`,
     sku: product.slug,
     category: FAMILY_LABELS[product.family] || product.family,
     brand: {
@@ -162,6 +164,41 @@ export default async function ProductPage({ params }: PageProps) {
         '@type': 'Organization',
         name: 'AllKeyMasters',
         url: 'https://www.allkeymasters.com',
+      },
+      shippingDetails: {
+        '@type': 'OfferShippingDetails',
+        shippingRate: {
+          '@type': 'MonetaryAmount',
+          value: '0',
+          currency: 'EUR',
+        },
+        shippingDestination: {
+          '@type': 'DefinedRegion',
+          addressCountry: 'FR',
+        },
+        deliveryTime: {
+          '@type': 'ShippingDeliveryTime',
+          handlingTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 0,
+            unitCode: 'DAY',
+          },
+          transitTime: {
+            '@type': 'QuantitativeValue',
+            minValue: 0,
+            maxValue: 0,
+            unitCode: 'DAY',
+          },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        '@type': 'MerchantReturnPolicy',
+        applicableCountry: 'FR',
+        returnPolicyCategory: 'https://schema.org/MerchantReturnNotPermitted',
+        merchantReturnDays: 0,
+        returnMethod: 'https://schema.org/ReturnByMail',
+        returnFees: 'https://schema.org/ReturnFeesCustomerResponsibility',
       },
     },
   };
