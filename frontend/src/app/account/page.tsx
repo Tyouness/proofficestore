@@ -1,41 +1,9 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 
 export default async function AccountPage() {
-  const cookieStore = await cookies();
+  const supabase = await createServerClient();
   
-  // Récupérer le token d'auth depuis les cookies
-  const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
-  
-  if (!authCookie) {
-    redirect('/login');
-  }
-
-  let session;
-  try {
-    session = JSON.parse(authCookie.value);
-  } catch {
-    redirect('/login');
-  }
-
-  if (!session?.access_token) {
-    redirect('/login');
-  }
-
-  // Créer le client Supabase avec le token
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      },
-    }
-  );
-
   // Récupérer l'utilisateur authentifié
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
