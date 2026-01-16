@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import { getProductImagePath } from '@/lib/product-images';
+import { generateProductSeo } from '@/lib/product-seo';
 import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
 import ProductEeatSection from '@/components/seo/ProductEeatSection';
 import ProductFaq from '@/components/seo/ProductFaq';
@@ -70,21 +71,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
+  // Générer le contenu SEO unique pour ce produit
+  const seoData = generateProductSeo(product);
+
   const productUrl = `https://www.allkeymasters.com/produit/${product.slug}`;
   const localImage = getProductImagePath(product.slug);
   const productImage = localImage 
     ? `https://www.allkeymasters.com${localImage}`
     : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
-  
-  // Description SEO optimisée (160 caractères max)
-  const deliveryLabel = product.delivery_type === 'digital_key' ? 'Livraison instantanée' : 'Livraison rapide';
-  const seoTitle = `${product.name} – Licence Numérique | ${deliveryLabel}`;
-  const seoDescription = `${product.name} - Clé d'activation officielle Microsoft. Licence perpétuelle authentique. ${deliveryLabel}. Support français inclus. ${product.base_price.toFixed(2)}€`;
 
   return {
-    title: seoTitle.slice(0, 60),
-    description: seoDescription.slice(0, 160),
-    keywords: `${product.name}, licence ${product.family}, clé activation, microsoft authentique, ${product.delivery_type}`,
+    title: seoData.title,
+    description: seoData.metaDescription,
+    keywords: `${product.name}, licence ${product.family}, clé activation, microsoft authentique, ${product.delivery_type}, ${product.version}`,
     authors: [{ name: 'AllKeyMasters' }],
     robots: {
       index: true,
@@ -97,8 +96,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     },
     openGraph: {
-      title: `${product.name} | AllKeyMasters`,
-      description: seoDescription.slice(0, 160),
+      title: seoData.title,
+      description: seoData.metaDescription,
       url: productUrl,
       siteName: 'AllKeyMasters',
       locale: 'fr_FR',
@@ -114,8 +113,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${product.name} | AllKeyMasters`,
-      description: seoDescription.slice(0, 160),
+      title: seoData.title,
+      description: seoData.metaDescription,
       images: [productImage],
     },
     alternates: {
@@ -161,6 +160,9 @@ export default async function ProductPage({ params }: PageProps) {
   if (!product) {
     notFound();
   }
+
+  // Générer le contenu SEO unique pour ce produit
+  const seoData = generateProductSeo(product);
 
   const deliveryInfo = DELIVERY_TYPE_LABELS[product.delivery_type] || {
     label: product.delivery_type,
@@ -415,8 +417,14 @@ export default async function ProductPage({ params }: PageProps) {
           {/* Long Description */}
           <div className="border-t border-gray-200 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Description détaillée</h2>
-            <div className="prose max-w-none text-gray-600">
-              <p>{product.long_description}</p>
+            <div className="prose max-w-none text-gray-600 leading-relaxed space-y-4">
+              {seoData.longDescription.split('\n\n').map((paragraph, index) => (
+                <p key={index} dangerouslySetInnerHTML={{ 
+                  __html: paragraph
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                }} />
+              ))}
             </div>
           </div>
         </div>
@@ -643,96 +651,11 @@ export default async function ProductPage({ params }: PageProps) {
         </div>
 
         {/* FAQ Section */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Questions Fréquentes</h2>
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                💬 Comment vais-je recevoir ma licence {product.name} ?
-              </h3>
-              <p className="text-gray-600">
-                {product.delivery_type === 'digital_key'
-                  ? 'Votre clé d\'activation vous sera envoyée par email immédiatement après validation du paiement. Vous pourrez également la retrouver dans votre compte client sous "Mes Licences".'
-                  : `Votre ${deliveryInfo.label} sera expédié sous 24h ouvrées. Vous recevrez un email de confirmation avec le numéro de suivi. Le délai de livraison est de 3 à 5 jours ouvrés.`}
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                💻 Sur combien d'appareils puis-je installer cette licence ?
-              </h3>
-              <p className="text-gray-600">
-                Cette licence {product.name} est valable pour <strong>1 PC uniquement</strong>. Si vous souhaitez équiper plusieurs ordinateurs, vous devrez acheter une licence pour chaque appareil.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                ⏰ La licence est-elle perpétuelle ou un abonnement ?
-              </h3>
-              <p className="text-gray-600">
-                Toutes nos licences sont <strong>perpétuelles</strong>. Vous ne payez qu'une seule fois et pouvez utiliser le logiciel indéfiniment, sans frais mensuels ni annuels.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                🔄 Puis-je réinstaller le logiciel sur le même PC ?
-              </h3>
-              <p className="text-gray-600">
-                Oui, absolument. Vous pouvez réinstaller {product.name} sur le même ordinateur autant de fois que nécessaire (en cas de formatage, changement de disque dur, etc.). La clé reste valide à vie.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                💰 Puis-je obtenir un remboursement ?
-              </h3>
-              <p className="text-gray-600">
-                Les clés d'activation numériques ne peuvent pas être remboursées une fois livrées, sauf en cas de clé défectueuse non activable. Consultez nos{' '}
-                <a href="/legal/refund" className="text-blue-600 hover:text-blue-700 underline">conditions de remboursement</a> pour plus de détails.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                🌐 Dois-je avoir une connexion Internet pour activer la licence ?
-              </h3>
-              <p className="text-gray-600">
-                Oui, une connexion Internet est nécessaire <strong>uniquement lors de l'activation</strong> initiale de votre licence Microsoft. Après activation, vous pourrez utiliser {product.name} hors ligne sans problème.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                🔒 Les licences vendues sont-elles authentiques ?
-              </h3>
-              <p className="text-gray-600">
-                Oui, nous vendons uniquement des <strong>licences Microsoft officielles</strong> vérifiables sur le site de Microsoft. Chaque clé est authentique et garantie fonctionnelle.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                📞 Que faire si j'ai un problème d'activation ?
-              </h3>
-              <p className="text-gray-600">
-                Notre équipe support est disponible 7j/7 pour vous aider. Contactez-nous via votre <a href="/account/support" className="text-blue-600 hover:text-blue-700 underline">espace client</a> ou par email. Nous répondons généralement sous 2h.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-2">
-                📥 Où télécharger le fichier d'installation de {product.name.split(' ')[0]} ?
-              </h3>
-              <p className="text-gray-600">
-                {product.family === 'windows'
-                  ? 'Téléchargez l\'ISO officiel Windows directement depuis le site Microsoft via l\'outil Media Creation Tool. Nous vous fournissons le lien dans votre espace client.'
-                  : 'Téléchargez Office directement depuis le portail officiel Microsoft Office. Le lien est fourni dans votre espace client avec votre clé d\'activation.'}
-              </p>
-            </div>
-          </div>
-        </div>
+        <ProductFaq 
+          productName={product.name}
+          productFamily={product.family}
+          deliveryType={product.delivery_type}
+        />
 
         {/* Avis Clients Section */}
         <div className="mt-8 bg-white rounded-lg shadow-sm p-8">
@@ -840,7 +763,7 @@ export default async function ProductPage({ params }: PageProps) {
           isPerpetual={true}
         />
 
-        {/* FAQ */}
+        {/* FAQ SEO Component */}
         <ProductFaq 
           productName={product.name}
           productFamily={product.family}
