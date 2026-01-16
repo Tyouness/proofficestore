@@ -392,7 +392,7 @@ export async function POST(req: NextRequest) {
 
         console.log('[WEBHOOK] 🚀 Appel RPC assign_licenses_atomic avec:', {
           p_order_id: order.id,
-          p_variant_id: item.variant || null,
+          p_variant_id: null,
           p_quantity: remainingToAssign
         });
         
@@ -400,7 +400,7 @@ export async function POST(req: NextRequest) {
           const { data: assignedKeys, error: rpcError } = await supabaseAdmin
             .rpc('assign_licenses_atomic', {
               p_order_id: order.id,
-              p_variant_id: item.variant || null,
+              p_variant_id: null,
               p_quantity: remainingToAssign
             });
 
