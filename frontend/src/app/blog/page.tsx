@@ -3,13 +3,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'Blog AllKeyMasters – Guides Office & Windows | Conseils Expert',
-  description: 'Guides d\'achat, tutoriels d\'installation et conseils d\'expert pour choisir, installer et activer vos licences Microsoft Office et Windows. Blog e-commerce logiciels.',
+  title: 'Blog AllKeyMasters – Guides Office & Windows',
+  description: 'Guides complets Office et Windows : comparatifs, installation, activation, licences ESD. Conseils experts et tutoriels détaillés.',
   openGraph: {
     title: 'Blog AllKeyMasters – Guides Office & Windows',
-    description: 'Conseils d\'expert pour vos licences Microsoft Office et Windows',
+    description: 'Guides complets Office et Windows : comparatifs, installation, activation, licences ESD. Conseils experts et tutoriels détaillés.',
     url: 'https://www.allkeymasters.com/blog',
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Blog AllKeyMasters – Guides Office & Windows',
+    description: 'Guides complets Office et Windows : comparatifs, installation, activation, licences ESD.',
   },
 };
 
@@ -63,10 +68,10 @@ export default function BlogPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Blog AllKeyMasters
+            Blog AllKeyMasters – Guides et Conseils Logiciels
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Guides d'achat, tutoriels d'installation et conseils d'expert pour maîtriser vos licences Microsoft Office et Windows
+            Guides d'achat, tutoriels d'installation et conseils d'activation pour vos licences Microsoft Office et Windows
           </p>
         </div>
 
