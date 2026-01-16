@@ -348,11 +348,14 @@ export async function POST(req: NextRequest) {
     // 8️⃣ Attribution licences ATOMIQUE via RPC Postgres
     console.log('[WEBHOOK] 🔑 Début attribution licences pour order:', order.id);
     
-    const { data: items } = await supabaseAdmin
+    const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .select('product_id, variant_id, quantity, product_name')
+      .select('product_id, variant, quantity, product_name')
       .eq('order_id', order.id);
 
+    if (itemsError) {
+      console.error('[WEBHOOK] ❌ Erreur récupération order_items:', itemsError);
+    }
     console.log('[WEBHOOK] 📦 Items récupérés:', items?.length || 0);
     
     let totalLicenses = 0;
@@ -389,7 +392,7 @@ export async function POST(req: NextRequest) {
 
         console.log('[WEBHOOK] 🚀 Appel RPC assign_licenses_atomic avec:', {
           p_order_id: order.id,
-          p_variant_id: item.variant_id || null,
+          p_variant_id: item.variant || null,
           p_quantity: remainingToAssign
         });
         
@@ -397,7 +400,7 @@ export async function POST(req: NextRequest) {
           const { data: assignedKeys, error: rpcError } = await supabaseAdmin
             .rpc('assign_licenses_atomic', {
               p_order_id: order.id,
-              p_variant_id: item.variant_id || null,
+              p_variant_id: item.variant || null,
               p_quantity: remainingToAssign
             });
 
