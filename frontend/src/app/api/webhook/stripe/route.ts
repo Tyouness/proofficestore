@@ -396,7 +396,7 @@ export async function POST(req: NextRequest) {
           totalLicenses += alreadyCount + newlyAssigned;
           
           if (assignedKeys) {
-            allLicenseKeys.push(...assignedKeys.map((row: { license_key: string }) => row.license_key));
+            allLicenseKeys.push(...assignedKeys.map((row: { license_key?: string; key_code?: string }) => row.license_key || row.key_code || ''));
           }
           
           results.push({ 
