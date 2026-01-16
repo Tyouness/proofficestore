@@ -65,7 +65,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Récupérer tous les produits actifs
     const { data: products, error } = await supabaseAdmin
       .from('products')
-      .select('slug, updated_at')
+      .select('slug, created_at')
       .eq('is_active', true);
 
     if (error) {
@@ -73,11 +73,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       return staticPages;
     }
 
-    const productPages: MetadataRoute.Sitemap = products.map((product) => ({
+    const productPages: MetadataRoute.Sitemap = (products || []).map((product) => ({
       url: `${SITE_URL}/produit/${product.slug}`,
-      lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
+      lastModified: product.created_at ? new Date(product.created_at) : new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
     }));
 
     return [...staticPages, ...productPages];

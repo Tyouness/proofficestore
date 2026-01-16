@@ -36,11 +36,12 @@ export default function ProductCard({ product }: { product: Product }) {
         {/* Image */}
         {(() => {
           const localImage = getProductImagePath(product.slug);
+          const imageAlt = `${product.name} - Licence numérique authentique Microsoft avec livraison instantanée`;
           return localImage ? (
             <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
               <Image 
                 src={localImage}
-                alt={product.name}
+                alt={imageAlt}
                 width={400}
                 height={300}
                 className="w-full h-full object-contain p-4"
@@ -51,7 +52,7 @@ export default function ProductCard({ product }: { product: Product }) {
             <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
               <img 
                 src={product.image_url} 
-                alt={product.name}
+                alt={imageAlt}
                 className="w-full h-full object-contain p-4"
               />
             </div>

@@ -4,6 +4,11 @@ import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import { getProductImagePath } from '@/lib/product-images';
+import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
+import ProductEeatSection from '@/components/seo/ProductEeatSection';
+import ProductFaq from '@/components/seo/ProductFaq';
+import ProductReviewsPreview from '@/components/seo/ProductReviewsPreview';
+import ProductInternalLinks from '@/components/seo/ProductInternalLinks';
 
 // ISR: Revalider la page toutes les heures
 export const revalidate = 3600;
@@ -57,6 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!product) {
     return {
       title: 'Produit introuvable',
+      description: 'Ce produit n\'existe pas ou n\'est plus disponible.',
       robots: {
         index: false,
         follow: false,
@@ -65,29 +71,52 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const productUrl = `https://www.allkeymasters.com/produit/${product.slug}`;
+  const localImage = getProductImagePath(product.slug);
+  const productImage = localImage 
+    ? `https://www.allkeymasters.com${localImage}`
+    : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
   
   // Description SEO optimisée (160 caractères max)
-  const seoDescription = product.delivery_type === 'digital_key'
-    ? `${product.name} - Clé d'activation officielle. Licence perpétuelle, activation immédiate, prix compétitif. Livraison instantanée.`
-    : `${product.name} - Licence perpétuelle Microsoft. Support physique ${DELIVERY_TYPE_LABELS[product.delivery_type]?.label}. Livraison rapide.`;
+  const deliveryLabel = product.delivery_type === 'digital_key' ? 'Livraison instantanée' : 'Livraison rapide';
+  const seoTitle = `${product.name} – Licence Numérique | ${deliveryLabel}`;
+  const seoDescription = `${product.name} - Clé d'activation officielle Microsoft. Licence perpétuelle authentique. ${deliveryLabel}. Support français inclus. ${product.base_price.toFixed(2)}€`;
 
   return {
-    title: `${product.name} – ${DELIVERY_TYPE_LABELS[product.delivery_type]?.label || 'Licence'}`,
+    title: seoTitle.slice(0, 60),
     description: seoDescription.slice(0, 160),
+    keywords: `${product.name}, licence ${product.family}, clé activation, microsoft authentique, ${product.delivery_type}`,
+    authors: [{ name: 'AllKeyMasters' }],
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
     openGraph: {
       title: `${product.name} | AllKeyMasters`,
       description: seoDescription.slice(0, 160),
       url: productUrl,
       siteName: 'AllKeyMasters',
-      images: product.image_url ? [
-        {
-          url: product.image_url,
-          width: 1200,
-          height: 630,
-          alt: `${product.name} - Licence Microsoft Officielle`,
-        },
-      ] : [],
+      locale: 'fr_FR',
       type: 'website',
+      images: [
+        {
+          url: productImage,
+          width: 800,
+          height: 800,
+          alt: `${product.name} - Licence Microsoft authentique avec activation immédiate`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${product.name} | AllKeyMasters`,
+      description: seoDescription.slice(0, 160),
+      images: [productImage],
     },
     alternates: {
       canonical: productUrl,
@@ -283,7 +312,7 @@ export default async function ProductPage({ params }: PageProps) {
             <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
               <Image
                 src={getProductImagePath(product.slug) || product.image_url || '/images/placeholder-product.jpg'}
-                alt={product.name}
+                alt={`${product.name} - Licence Microsoft authentique avec activation immédiate et support français inclus`}
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 50vw"
@@ -355,6 +384,9 @@ export default async function ProductPage({ params }: PageProps) {
                 productName={product.name} 
                 basePrice={product.base_price} 
               />
+
+              {/* Trust Badges */}
+              <ProductTrustBadges deliveryType={product.delivery_type} />
 
               {/* Réassurance sous le CTA */}
               <div className="mt-4 space-y-2">
@@ -801,6 +833,25 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           )}
         </div>
+
+        {/* E-E-A-T Section */}
+        <ProductEeatSection 
+          productName={product.name}
+          isPerpetual={true}
+        />
+
+        {/* FAQ */}
+        <ProductFaq 
+          productName={product.name}
+          productFamily={product.family}
+          deliveryType={product.delivery_type}
+        />
+
+        {/* Internal Links */}
+        <ProductInternalLinks 
+          currentProductFamily={product.family}
+          currentProductSlug={product.slug}
+        />
       </div>
     </div>
     </>
