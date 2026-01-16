@@ -385,6 +385,8 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        const remainingToAssign = item.quantity - alreadyCount;
+
         console.log('[WEBHOOK] 🚀 Appel RPC assign_licenses_atomic avec:', {
           p_order_id: order.id,
           p_variant_id: item.variant_id || null,
