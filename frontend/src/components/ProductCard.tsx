@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import { getProductImagePath } from '@/lib/product-images';
 
 interface Product {
   id: string;
@@ -32,21 +34,35 @@ export default function ProductCard({ product }: { product: Product }) {
     <Link href={`/produit/${product.slug}`} className="group block">
       <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full flex flex-col">
         {/* Image */}
-        {product.image_url ? (
-          <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
-            <img 
-              src={product.image_url} 
-              alt={product.name}
-              className="w-full h-full object-contain p-4"
-            />
-          </div>
-        ) : (
-          <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center">
-            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-        )}
+        {(() => {
+          const localImage = getProductImagePath(product.slug);
+          return localImage ? (
+            <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
+              <Image 
+                src={localImage}
+                alt={product.name}
+                width={400}
+                height={300}
+                className="w-full h-full object-contain p-4"
+                priority={false}
+              />
+            </div>
+          ) : product.image_url ? (
+            <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
+              <img 
+                src={product.image_url} 
+                alt={product.name}
+                className="w-full h-full object-contain p-4"
+              />
+            </div>
+          ) : (
+            <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center">
+              <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          );
+        })()}
 
         {/* Content */}
         <div className="p-5 flex flex-col flex-grow">

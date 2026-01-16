@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
+import { getProductImagePath } from '@/lib/product-images';
 
 // ISR: Revalider la page toutes les heures
 export const revalidate = 3600;
@@ -281,7 +282,7 @@ export default async function ProductPage({ params }: PageProps) {
             {/* Image */}
             <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
               <Image
-                src={product.image_url || '/images/placeholder-product.jpg'}
+                src={getProductImagePath(product.slug) || product.image_url || '/images/placeholder-product.jpg'}
                 alt={product.name}
                 fill
                 className="object-cover"
