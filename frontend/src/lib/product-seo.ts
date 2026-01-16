@@ -71,6 +71,12 @@ export function generateProductSeo(product: {
     longDescription = `
 **${product.name}** est la solution professionnelle complète de Microsoft pour les entreprises, travailleurs indépendants et professionnels exigeants. Cette licence perpétuelle vous offre un accès à vie aux applications bureautiques essentielles, sans abonnement mensuel.
 
+**Cas d'usage en entreprise et professions libérales**
+
+${product.name} s'adresse spécifiquement aux professionnels : TPE/PME pour la gestion administrative et comptable, cabinets d'expertise (avocats, comptables, architectes) pour la création de documents juridiques et financiers, freelances et consultants pour propositions commerciales et rapports clients, associations pour la gestion des adhésions et budgets.
+
+L'édition Professional Plus est la seule autorisée pour un usage commercial. Elle intègre Access pour créer des bases de données clients, Publisher pour concevoir plaquettes et brochures professionnelles, et Outlook avec Exchange pour centraliser emails et calendriers d'équipe.
+
 **Suite logicielle complète pour professionnels**
 
 ${product.name} regroupe l'ensemble des applications Microsoft Office dans leur version ${version} : Word pour le traitement de texte professionnel, Excel pour l'analyse de données et la comptabilité, PowerPoint pour des présentations percutantes, Outlook pour la gestion emails et calendriers, Access pour les bases de données, Publisher pour la publication assistée par ordinateur, et OneNote pour la prise de notes collaborative.
@@ -111,6 +117,12 @@ Achetez votre licence ${product.name} dès aujourd'hui et profitez d'un logiciel
   } else if (isOffice && isHome) {
     longDescription = `
 **${product.name}** est la version familiale et étudiante de la suite bureautique Microsoft Office ${version}. Conçue pour un usage personnel et domestique, cette licence perpétuelle offre les applications essentielles pour la maison, les études et les projets personnels.
+
+**À qui s'adresse cette licence Famille & Étudiant ?**
+
+${product.name} est idéal pour les étudiants (lycée, université) réalisant rapports et exposés, les parents gérant le budget familial et la correspondance administrative, les retraités souhaitant une suite bureautique simple pour courriers et tableaux personnels, et toute personne ayant besoin de Word/Excel/PowerPoint à usage strictement non commercial.
+
+Attention : cette licence interdit tout usage professionnel (facturation, comptabilité d'entreprise, documents commerciaux). Si vous êtes auto-entrepreneur, freelance ou dirigez une société, la version Professional Plus est obligatoire pour respecter les conditions de licence Microsoft.
 
 **Applications essentielles pour toute la famille**
 
@@ -156,6 +168,12 @@ Commandez votre ${product.name} aujourd'hui pour ${product.base_price.toFixed(2)
   } else if (isWindows) {
     longDescription = `
 **${product.name}** est le système d'exploitation professionnel de Microsoft, conçu pour offrir performance, sécurité et productivité. Cette licence perpétuelle vous permet d'installer et d'activer Windows sur votre PC, sans frais d'abonnement.
+
+**Pourquoi choisir Windows Pro plutôt que Home ?**
+
+Si vous hésitez entre Windows Home et Windows Pro, voici les différences clés : Windows Pro inclut **BitLocker** pour chiffrer l'intégralité de votre disque dur (crucial pour données sensibles), **Bureau à distance** pour accéder à votre PC depuis n'importe où, **support du domaine Active Directory** pour rejoindre un réseau d'entreprise, et **Hyper-V** pour créer des machines virtuelles (tester Linux, anciens logiciels).
+
+Windows Home suffit pour un usage familial basique (navigation web, bureautique, jeux). Mais si vous êtes professionnel, télétravailleur, étudiant en informatique, ou manipulez des données confidentielles, Windows Pro est indispensable. Le surcoût de 30-40€ est largement justifié par les fonctionnalités de sécurité et productivité.
 
 **Système d'exploitation complet et performant**
 
