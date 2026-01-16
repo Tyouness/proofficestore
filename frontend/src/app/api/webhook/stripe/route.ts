@@ -346,17 +346,24 @@ export async function POST(req: NextRequest) {
     // }
 
     // 8️⃣ Attribution licences ATOMIQUE via RPC Postgres
+    console.log('[WEBHOOK] 🔑 Début attribution licences pour order:', order.id);
+    
     const { data: items } = await supabaseAdmin
       .from('order_items')
       .select('product_id, variant_id, quantity, product_name')
       .eq('order_id', order.id);
 
+    console.log('[WEBHOOK] 📦 Items récupérés:', items?.length || 0);
+    
     let totalLicenses = 0;
     const results = [];
     const allLicenseKeys: string[] = [];
 
     if (items && items.length > 0) {
+      console.log('[WEBHOOK] 🔄 Traitement de', items.length, 'items');
       for (const item of items) {
+        console.log('[WEBHOOK] 🔍 Traitement item:', item.product_id, 'x', item.quantity);
+        
         // Vérifier si des licences sont déjà attribuées (idempotence)
         const { data: alreadyAssigned } = await supabaseAdmin
           .from('licenses')
@@ -365,6 +372,7 @@ export async function POST(req: NextRequest) {
           .eq('product_id', item.product_id);
 
         const alreadyCount = alreadyAssigned?.length || 0;
+        console.log('[WEBHOOK] 📊 Déjà attribué:', alreadyCount, '/', item.quantity);
 
         if (alreadyCount >= item.quantity) {
           totalLicenses += alreadyCount;
@@ -377,15 +385,24 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const remainingToAssign = item.quantity - alreadyCount;
-
-        // ATTRIBUTION ATOMIQUE via RPC Postgres (FOR UPDATE SKIP LOCKED)
+        console.log('[WEBHOOK] 🚀 Appel RPC assign_licenses_atomic avec:', {
+          p_order_id: order.id,
+          p_variant_id: item.variant_id || null,
+          p_quantity: remainingToAssign
+        });
+        
         try {
           const { data: assignedKeys, error: rpcError } = await supabaseAdmin
             .rpc('assign_licenses_atomic', {
               p_order_id: order.id,
               p_variant_id: item.variant_id || null,
               p_quantity: remainingToAssign
+            });
+
+          console.log('[WEBHOOK] 📥 RPC réponse:', { assignedKeys, rpcError });
+
+          if (rpcError) {
+            console.error('[WEBHOOK] ❌ Erreur RPC:', rpcError); remainingToAssign
             });
 
           if (rpcError) {
