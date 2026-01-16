@@ -1,51 +1,31 @@
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 import Link from 'next/link';
 
 export default async function SupportPage() {
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
+  const supabase = await createServerClient();
 
   let user = null;
   let recentTickets = null;
 
   // Vérifier si l'utilisateur est connecté
-  if (authCookie) {
-    try {
-      const session = JSON.parse(authCookie.value);
-      
-      if (session?.access_token) {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-              },
-            },
-          }
-        );
+  try {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    
+    if (authUser) {
+      user = authUser;
 
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        
-        if (authUser) {
-          user = authUser;
+      // Récupérer les 3 derniers tickets
+      const { data: tickets } = await supabase
+        .from('support_tickets')
+        .select('id, subject, status, created_at')
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
 
-          // Récupérer les 3 derniers tickets
-          const { data: tickets } = await supabase
-            .from('support_tickets')
-            .select('id, subject, status, created_at')
-            .eq('user_id', authUser.id)
-            .order('created_at', { ascending: false })
-            .limit(3);
-
-          recentTickets = tickets;
-        }
-      }
-    } catch (error) {
-      // Silencieux - l'utilisateur verra l'interface non connectée
+      recentTickets = tickets;
     }
+  } catch (error) {
+    // Silencieux - l'utilisateur verra l'interface non connectée
   }
 
   // ──────────────────────────────────────────────

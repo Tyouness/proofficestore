@@ -32,6 +32,27 @@ import type {
   CreateCheckoutSessionInput, 
   CreateCheckoutSessionResult 
 } from '@/types/checkout';
+import crypto from 'crypto';
+
+/**
+ * Créer un hash stable du panier pour l'idempotence
+ */
+function generateCartHash(items: CheckoutItem[]): string {
+  // Trier les items pour avoir un hash déterministe
+  const sortedItems = [...items].sort((a, b) => {
+    const keyA = `${a.productId}-${a.variant}`;
+    const keyB = `${b.productId}-${b.variant}`;
+    return keyA.localeCompare(keyB);
+  });
+
+  // Créer une représentation stable
+  const cartString = sortedItems
+    .map(item => `${item.productId}:${item.variant}:${item.quantity}`)
+    .join('|');
+
+  // Générer le hash SHA256
+  return crypto.createHash('sha256').update(cartString).digest('hex');
+}
 
 /**
  * Valide un email de manière stricte
@@ -105,6 +126,23 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] 🚀 Début de création de session checkout');
     console.log('[CHECKOUT] 📧 Email reçu:', input.email);
     console.log('[CHECKOUT] 🛒 Items reçus:', JSON.stringify(input.items, null, 2));
+    
+    // ──────────────────────────────────────────────
+    // DEBUG: Vérifier si les productId sont des slugs ou des UUID
+    // ──────────────────────────────────────────────
+    if (process.env.NODE_ENV === 'development') {
+      input.items.forEach(item => {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.productId);
+        const isSlug = /^[a-z0-9-]+$/.test(item.productId);
+        console.log('[CHECKOUT] 🔍 Item debug:', {
+          productId: item.productId,
+          variant: item.variant,
+          isUUID,
+          isSlug,
+          type: isUUID ? 'UUID' : isSlug ? 'SLUG' : 'UNKNOWN'
+        });
+      });
+    }
 
     // ──────────────────────────────────────────────
     // 1️⃣ VALIDATION STRICTE DES INPUTS
@@ -171,15 +209,75 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] ✅ Client Supabase admin créé pour les opérations d\'écriture');
 
     // ──────────────────────────────────────────────
-    // 2️⃣ RÉCUPÉRATION DES PRODUITS DEPUIS SUPABASE
+    // 2️⃣ VÉRIFIER SI UNE COMMANDE EXISTE DÉJÀ (IDEMPOTENCE)
+    // ⚠️ PRIORITAIRE: Vérifier AVANT de chercher les produits!
+    // Si session valide existe → retour immédiat, pas besoin des produits
     // ──────────────────────────────────────────────
-    const uniqueProductIds = [...new Set(items.map(item => item.productId))];
-    console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs:', uniqueProductIds);
+    const cartHash = generateCartHash(items);
+    console.log('[CHECKOUT] 🔐 Cart hash généré:', cartHash);
+
+    // Chercher une commande pending existante avec le même panier
+    const { data: existingOrder } = await supabase
+      .from('orders')
+      .select('id, stripe_session_id')
+      .eq('user_id', user.id)
+      .eq('cart_hash', cartHash)
+      .eq('status', 'pending')
+      .single();
+
+    if (existingOrder?.stripe_session_id) {
+      console.log('[CHECKOUT] ♻️ Commande pending existante trouvée:', existingOrder.id);
+      
+      // Vérifier si la session Stripe est encore valide
+      try {
+        const existingSession = await stripe.checkout.sessions.retrieve(existingOrder.stripe_session_id);
+        
+        // Vérifier si la session est ouverte ET récente (moins de 30 minutes)
+        const sessionAge = Date.now() - (existingSession.created * 1000);
+        const isRecent = sessionAge < 30 * 60 * 1000; // 30 minutes
+        
+        if (existingSession.status === 'open' && existingSession.url && isRecent) {
+          console.log('[CHECKOUT] ✅ Session Stripe existante toujours valide, réutilisation');
+          return {
+            success: true,
+            sessionUrl: existingSession.url,
+          };
+        } else {
+          console.log('[CHECKOUT] ⏰ Session Stripe expirée/annulée (status:', existingSession.status, ', age:', Math.round(sessionAge / 60000), 'min), suppression de l\'ancienne commande');
+          
+          // Supprimer l'ancienne commande et ses items
+          await supabaseAdmin.from('order_items').delete().eq('order_id', existingOrder.id);
+          await supabaseAdmin.from('orders').delete().eq('id', existingOrder.id);
+          
+          console.log('[CHECKOUT] 🗑️ Ancienne commande supprimée, création d\'une nouvelle');
+        }
+      } catch (error) {
+        console.log('[CHECKOUT] ⚠️ Erreur lors de la récupération de la session existante, suppression de l\'ancienne commande');
+        
+        // Supprimer l'ancienne commande en cas d'erreur
+        await supabaseAdmin.from('order_items').delete().eq('order_id', existingOrder.id);
+        await supabaseAdmin.from('orders').delete().eq('id', existingOrder.id);
+        
+        console.log('[CHECKOUT] 🗑️ Ancienne commande supprimée, création d\'une nouvelle');
+      }
+    }
+
+    // ──────────────────────────────────────────────
+    // 3️⃣ RÉCUPÉRATION DES PRODUITS DEPUIS SUPABASE
+    // ──────────────────────────────────────────────
+    // Construire les slugs complets avec le variant (ex: 'windows-11-pro-digital-key')
+    const fullSlugs = items.map(item => {
+      const variantSuffix = item.variant === 'digital' ? 'digital-key' : item.variant;
+      return `${item.productId}-${variantSuffix}`;
+    });
+    const uniqueProductSlugs = [...new Set(fullSlugs)];
+    
+    console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs complets:', uniqueProductSlugs);
 
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('slug, name, base_price')
-      .in('slug', uniqueProductIds);
+      .in('slug', uniqueProductSlugs);
 
     if (productsError) {
       console.error('[CHECKOUT] ❌ Erreur Supabase lors de la récupération des produits:');
@@ -193,22 +291,22 @@ export async function createStripeCheckoutSession(
 
     if (!products || products.length === 0) {
       console.error('[CHECKOUT] ❌ Aucun produit trouvé dans Supabase');
-      console.error('[CHECKOUT] Slugs recherchés:', uniqueProductIds);
+      console.error('[CHECKOUT] Slugs recherchés:', uniqueProductSlugs);
       return { success: false, error: 'Aucun produit trouvé' };
     }
 
     // Vérifier que tous les produits existent
-    if (products.length !== uniqueProductIds.length) {
+    if (products.length !== uniqueProductSlugs.length) {
       console.error('[CHECKOUT] ❌ Produits manquants');
-      console.error('[CHECKOUT] Attendus:', uniqueProductIds.length);
+      console.error('[CHECKOUT] Attendus:', uniqueProductSlugs.length);
       console.error('[CHECKOUT] Trouvés:', products.length);
-      console.error('[CHECKOUT] Slugs attendus:', uniqueProductIds);
+      console.error('[CHECKOUT] Slugs attendus:', uniqueProductSlugs);
       console.error('[CHECKOUT] Slugs trouvés:', products.map(p => p.slug));
       return { success: false, error: 'Certains produits sont introuvables' };
     }
 
     // ──────────────────────────────────────────────
-    // 3️⃣ CALCUL SERVEUR DES PRIX (NEVER TRUST CLIENT)
+    // 4️⃣ CALCUL SERVEUR DES PRIX (NEVER TRUST CLIENT)
     // ──────────────────────────────────────────────
     const productsMap = new Map(
       products.map(p => [p.slug, { name: p.name, basePrice: p.base_price }])
@@ -224,21 +322,24 @@ export async function createStripeCheckoutSession(
     }> = [];
 
     for (const item of items) {
-      const product = productsMap.get(item.productId);
+      // Construire le slug complet
+      const variantSuffix = item.variant === 'digital' ? 'digital-key' : item.variant;
+      const fullSlug = `${item.productId}-${variantSuffix}`;
+      const product = productsMap.get(fullSlug);
       
       if (!product) {
-        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', item.productId);
-        return { success: false, error: `Produit ${item.productId} introuvable` };
+        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', fullSlug);
+        return { success: false, error: `Produit ${item.productId} (${item.variant}) introuvable` };
       }
 
-      // Calcul serveur du prix avec surcharge variant
-      const unitPriceEuros = calculateProductPrice(product.basePrice, item.variant);
+      // Le prix est déjà dans base_price selon le delivery_type
+      const unitPriceEuros = product.basePrice;
       const lineTotalEuros = unitPriceEuros * item.quantity;
       
       totalAmountEuros += lineTotalEuros;
 
       orderItems.push({
-        product_id: item.productId,
+        product_id: fullSlug,  // Utiliser le slug complet
         product_name: product.name,
         variant: item.variant,
         unit_price: eurosToCents(unitPriceEuros),
@@ -251,16 +352,18 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] 📋 Order items préparés:', JSON.stringify(orderItems, null, 2));
 
     // ──────────────────────────────────────────────
-    // 4️⃣ CRÉATION DE LA COMMANDE (status: pending)
+    // 5️⃣ CRÉATION DE LA COMMANDE (status: pending)
     // ⚠️ Utilisation du client ADMIN pour contourner le RLS
     // ──────────────────────────────────────────────
     console.log('[CHECKOUT] 💾 Tentative de création de commande dans Supabase...');
+    
     const orderData = {
       user_id: user.id,
       email_client: email.toLowerCase().trim(),
       status: 'pending' as const,
       total_amount: totalAmountCents,
       stripe_session_id: null,
+      cart_hash: cartHash,
     };
     console.log('[CHECKOUT] 📝 Données commande:', JSON.stringify(orderData, null, 2));
 
@@ -315,7 +418,7 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] ✅ Lignes de commande créées avec succès');
 
     // ──────────────────────────────────────────────
-    // 5️⃣ CRÉATION SESSION STRIPE CHECKOUT
+    // 6️⃣ CRÉATION SESSION STRIPE CHECKOUT
     // ──────────────────────────────────────────────
     console.log('[CHECKOUT] 💳 Création de la session Stripe...');
     const lineItems = orderItems.map(item => ({
@@ -366,7 +469,7 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] ✅ Commande mise à jour avec session_id');
 
     // ──────────────────────────────────────────────
-    // 6️⃣ RETOUR URL UNIQUEMENT (aucune donnée sensible)
+    // 7️⃣ RETOUR URL UNIQUEMENT (aucune donnée sensible)
     // ──────────────────────────────────────────────
     console.log('[CHECKOUT] 🎉 Session checkout créée avec succès!');
     return {

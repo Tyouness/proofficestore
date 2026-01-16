@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { stripHtml } from '@/lib/sanitize';
 
 interface Message {
   id: string;
@@ -157,7 +158,7 @@ export default function TicketChatClient({
         ticket_id: ticketId,
         sender_id: userId,
         sender_role: 'user',
-        content: messageContent || '',
+        content: stripHtml(messageContent) || '', // XSS protection
         attachment_url: attachmentData?.url || null,
         file_type: attachmentData?.type || null,
       };

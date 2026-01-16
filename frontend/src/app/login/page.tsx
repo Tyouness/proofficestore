@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +39,9 @@ export default function LoginPage() {
         // Petit délai pour laisser les cookies se synchroniser
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        router.push('/account');
+        // Rediriger vers la page demandée ou /account par défaut
+        const redirectTo = searchParams.get('redirect') || '/account';
+        router.push(redirectTo);
         router.refresh();
       }
     } catch (err: any) {
@@ -133,5 +136,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

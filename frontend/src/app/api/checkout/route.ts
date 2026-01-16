@@ -1,45 +1,61 @@
 /**
  * API Route : Création de session Stripe Checkout avec compte obligatoire
  * 
- * CONTRAINTES :
- * - Utilisateur authentifié obligatoire (via cookies SSR)
- * - Création de la commande (orders) AVANT Stripe
- * - user_id lié dès le checkout
- * - Pas de service_role pour l'auth
- * - Idempotence via cart_hash (éviter doublons)
- * - Rollback si échec Stripe
+ * SÉCURITÉ :
+ * ✅ Rate limiting (write: 30 req/min)
+ * ✅ Validation stricte Zod
+ * ✅ Authentification SSR Supabase
+ * ✅ Idempotence via cart_hash (session Stripe réutilisée si open+unpaid)
+ * ✅ Rollback si échec Stripe
+ * ✅ 1 requête products + 1 requête variants (pas de N+1)
+ * ✅ Montants en centimes (integers, pas de floats)
  * 
  * FLUX :
- * 1. Créer client Supabase server (SSR)
- * 2. Récupérer user via supabase.auth.getUser()
- * 3. Calculer cart_hash des items
- * 4. Vérifier commande pending existante (user_id + cart_hash + récent)
- * 5. Valider les inputs et produits
- * 6. Créer orders avec user_id + cart_hash
- * 7. Créer order_items
- * 8. Créer session Stripe avec metadata (order_id, user_id)
- * 9. Si échec Stripe => supprimer la commande créée
+ * 1. Rate limit check (IP + user)
+ * 2. Créer client Supabase server (SSR)
+ * 3. Récupérer user via supabase.auth.getUser()
+ * 4. Validation stricte inputs (Zod)
+ * 5. Calculer cart_hash des items
+ * 6. Vérifier commande pending existante (idempotence)
+ * 7. Valider produits + variants en DB (2 queries batch)
+ * 8. Créer orders avec user_id + cart_hash
+ * 9. Créer order_items
+ * 10. Créer session Stripe avec metadata
+ * 11. Rollback si échec Stripe
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 import crypto from 'crypto';
+import { z } from 'zod';
+import { rateLimit, getClientIdentifier, getUserIdentifier } from '@/lib/rateLimit';
+import { checkoutItemsSchema, parseOrThrow } from '@/lib/validation';
+import { env } from '@/lib/env';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-12-15.clover',
+  timeout: 10000, // 10s timeout
+  maxNetworkRetries: 2,
 });
 
-// Types
-interface CheckoutItem {
-  productId: string;
-  variant: 'digital' | 'dvd' | 'usb';
-  quantity: number;
-}
+// Types Zod (inféré depuis schema validation)
+type CheckoutItem = z.infer<typeof checkoutItemsSchema>[number];
 
-interface CheckoutRequestBody {
-  items: CheckoutItem[];
+/**
+ * Vérifier si une session Stripe est réutilisable
+ * Conditions: open + unpaid + non expirée
+ */
+function isStripeSessionReusable(session: Stripe.Checkout.Session): boolean {
+  const now = Math.floor(Date.now() / 1000);
+  
+  return (
+    session.status === 'open' &&
+    session.payment_status === 'unpaid' &&
+    typeof session.expires_at === 'number' &&
+    session.expires_at > now &&
+    typeof session.url === 'string' &&
+    session.url.length > 0
+  );
 }
 
 /**
@@ -48,14 +64,14 @@ interface CheckoutRequestBody {
 function generateCartHash(items: CheckoutItem[]): string {
   // Trier les items pour avoir un hash déterministe
   const sortedItems = [...items].sort((a, b) => {
-    const keyA = `${a.productId}-${a.variant}`;
-    const keyB = `${b.productId}-${b.variant}`;
+    const keyA = `${a.product_id}-${a.variant_id}`;
+    const keyB = `${b.product_id}-${b.variant_id}`;
     return keyA.localeCompare(keyB);
   });
 
   // Créer une représentation stable
   const cartString = sortedItems
-    .map(item => `${item.productId}:${item.variant}:${item.quantity}`)
+    .map(item => `${item.product_id}:${item.variant_id}:${item.quantity}`)
     .join('|');
 
   // Générer le hash SHA256
@@ -63,73 +79,71 @@ function generateCartHash(items: CheckoutItem[]): string {
 }
 
 export async function POST(request: NextRequest) {
-  let createdOrderId: string | null = null;
-
   try {
-    // Créer le client Supabase server (SSR officiel)
-    const cookieStore = await cookies();
+    // ── 1. RATE LIMITING (IP-based) ──
+    const ipIdentifier = getClientIdentifier(request);
+    const ipLimit = await rateLimit(ipIdentifier, 'write');
     
-    // Récupérer le token d'auth depuis les cookies
-    const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
-    
-    if (!authCookie) {
+    if (!ipLimit.success) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    let session;
-    try {
-      session = JSON.parse(authCookie.value);
-    } catch {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    if (!session?.access_token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Créer le client Supabase avec le token utilisateur
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
+        { 
+          error: 'Trop de requêtes', 
+          retryAfter: ipLimit.retryAfter 
         },
-      }
-    );
+        { 
+          status: 429,
+          headers: ipLimit.headers
+        }
+      );
+    }
 
-    // Récupérer l'utilisateur authentifié
+    // ── 2. AUTHENTIFICATION (SSR Supabase) ──
+    const { createServerClient } = await import('@/lib/supabase-server');
+    const supabase = await createServerClient();
+    
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (!user?.id) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Non authentifié' },
         { status: 401 }
       );
     }
 
-    // Parser le body
-    const body: CheckoutRequestBody = await request.json();
-    const { items } = body;
-
-    // Validation des inputs
-    if (!items || !Array.isArray(items) || items.length === 0) {
+    // ── 3. RATE LIMITING (User-based en plus) ──
+    const userIdentifier = getUserIdentifier(user.id);
+    const userLimit = await rateLimit(userIdentifier, 'write');
+    
+    if (!userLimit.success) {
       return NextResponse.json(
-        { error: 'Panier vide' },
+        { 
+          error: 'Trop de requêtes pour cet utilisateur', 
+          retryAfter: userLimit.retryAfter 
+        },
+        { 
+          status: 429,
+          headers: userLimit.headers
+        }
+      );
+    }
+
+    // ── 4. VALIDATION STRICTE DES INPUTS (ZOD) ──
+    let rawBody;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'JSON invalide' },
         { status: 400 }
       );
     }
+
+    // Valider avec Zod
+    const items = parseOrThrow(
+      checkoutItemsSchema,
+      rawBody.items,
+      'checkout items'
+    );
 
     // Calculer le hash du panier pour l'idempotence
     const cartHash = generateCartHash(items);
@@ -149,31 +163,32 @@ export async function POST(request: NextRequest) {
     if (existingOrders && existingOrders.length > 0) {
       const recentOrder = existingOrders[0];
       
-      // Si une session Stripe existe déjà, la réutiliser
+      // Si une session Stripe existe déjà, la réutiliser SI ELLE EST VALIDE
       if (recentOrder.stripe_session_id) {
         try {
           const existingSession = await stripe.checkout.sessions.retrieve(recentOrder.stripe_session_id);
-          if (existingSession.url) {
+          
+          // Vérifier que la session est réutilisable (open + unpaid + non expirée)
+          if (isStripeSessionReusable(existingSession)) {
             return NextResponse.json({
               url: existingSession.url,
               sessionId: existingSession.id,
             });
           }
         } catch (err) {
-          // Session expirée, créer une nouvelle
+          // Session invalide/expirée, continuer pour créer une nouvelle
         }
       }
     }
 
-    // Récupérer les produits depuis Supabase pour validation et prix
-    const productIds = [...new Set(items.map(item => item.productId))];
+    // ── 5. VALIDATION PRODUITS (1 query batch) ──
+    const productIds = [...new Set(items.map(item => item.product_id))];
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select('id, name, slug, base_price')
-      .in('slug', productIds);
+      .in('id', productIds);
 
     if (productsError || !products || products.length === 0) {
-      console.error('[CHECKOUT] Erreur produits:', productsError);
       return NextResponse.json(
         { error: 'Produits introuvables' },
         { status: 404 }
@@ -188,54 +203,93 @@ export async function POST(request: NextRequest) {
       base_price: number;
     };
 
-    // Créer un map des produits pour accès rapide
-    const productMap = new Map<string, Product>(products.map((p: any) => [p.slug, p]));
+    type Variant = {
+      id: string;
+      product_id: string;
+      variant_type: string;
+      price_modifier: number | null;
+    };
 
-    // Calculer le total et valider tous les items
-    let totalAmount = 0;
-    const validatedItems: Array<{
-      productId: string;
-      productName: string;
-      variant: string;
+    // Map produits par ID
+    const productMap = new Map<string, Product>(products.map((p: any) => [p.id, p]));
+
+    // ── 6. VALIDATION VARIANTS (1 query batch - FIX N+1) ──
+    const variantIds = [...new Set(items.map(item => item.variant_id))];
+    const { data: variants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select('id, product_id, variant_type, price_modifier')
+      .in('id', variantIds);
+
+    if (variantsError || !variants || variants.length === 0) {
+      return NextResponse.json(
+        { error: 'Variants introuvables' },
+        { status: 404 }
+      );
+    }
+
+    // Map variants par ID
+    const variantMap = new Map<string, Variant>(variants.map((v: any) => [v.id, v]));
+
+    // ── 7. CALCULER TOTAL + ENRICHIR ITEMS (MONTANTS EN CENTIMES) ──
+    let totalAmountCents = 0;
+    const enrichedItems: Array<{
+      product_id: string;
+      variant_id: string;
+      product_name: string;
+      variant_type: string;
       quantity: number;
-      unitPrice: number;
+      unit_price_cents: number;
     }> = [];
 
     for (const item of items) {
-      const product = productMap.get(item.productId);
+      const product = productMap.get(item.product_id);
       if (!product) {
         return NextResponse.json(
-          { error: `Produit ${item.productId} introuvable` },
+          { error: `Produit ${item.product_id} introuvable` },
           { status: 404 }
         );
       }
 
-      // Calculer le prix avec surcharge variant
-      let unitPrice = product.base_price;
-      if (item.variant === 'usb') {
-        unitPrice += 15;
-      } else if (item.variant === 'dvd') {
-        unitPrice += 10;
+      const variant = variantMap.get(item.variant_id);
+      if (!variant) {
+        return NextResponse.json(
+          { error: `Variant ${item.variant_id} introuvable` },
+          { status: 404 }
+        );
       }
 
-      const lineTotal = unitPrice * item.quantity;
-      totalAmount += lineTotal;
+      // VALIDATION ANTI-FRAUDE: variant appartient bien au produit
+      if (variant.product_id !== product.id) {
+        return NextResponse.json(
+          { error: `Variant ${item.variant_id} incompatible avec produit ${item.product_id}` },
+          { status: 400 }
+        );
+      }
 
-      validatedItems.push({
-        productId: product.slug,
-        productName: product.name,
-        variant: item.variant,
+      // MONTANTS EN CENTIMES (integers) - pas de floats
+      const basePriceCents = Math.round(product.base_price * 100);
+      const priceModifierCents = Math.round((variant.price_modifier || 0) * 100);
+      const unitPriceCents = basePriceCents + priceModifierCents;
+      const lineTotalCents = unitPriceCents * item.quantity;
+      
+      totalAmountCents += lineTotalCents;
+
+      enrichedItems.push({
+        product_id: product.id,
+        variant_id: variant.id,
+        product_name: product.name,
+        variant_type: variant.variant_type,
         quantity: item.quantity,
-        unitPrice,
+        unit_price_cents: unitPriceCents,
       });
     }
 
-    // Créer la commande dans orders
+    // ── 8. CRÉER COMMANDE (avec handling 23505 idempotent) ──
     const orderPayload = {
       user_id: user.id,
       email_client: user.email,
       status: 'pending' as const,
-      total_amount: totalAmount * 100,
+      total_amount: totalAmountCents, // Déjà en centimes
       cart_hash: cartHash,
     };
 
@@ -245,24 +299,81 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (orderError || !order) {
-      console.error('[CHECKOUT] ❌ Erreur création commande:', orderError);
+    if (orderError) {
+      // GESTION IDEMPOTENTE unique violation (code 23505)
+      if (orderError.code === '23505') {
+        if (env.NODE_ENV !== 'production') {
+          console.log('[CHECKOUT] ⚠️ Unique constraint violation - tentative récupération session existante');
+        }
+        
+        // Chercher la commande pending existante
+        const { data: existingPendingOrder } = await supabase
+          .from('orders')
+          .select('id, stripe_session_id, created_at')
+          .eq('user_id', user.id)
+          .eq('status', 'pending')
+          .eq('cart_hash', cartHash)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Si session Stripe existe, tenter de la récupérer
+        if (existingPendingOrder?.stripe_session_id) {
+          try {
+            const existingSession = await stripe.checkout.sessions.retrieve(existingPendingOrder.stripe_session_id);
+            
+            // Vérifier que la session est réutilisable
+            if (isStripeSessionReusable(existingSession)) {
+              if (env.NODE_ENV !== 'production') {
+                console.log('[CHECKOUT] ✓ Session Stripe existante récupérée');
+              }
+              return NextResponse.json({
+                url: existingSession.url,
+                sessionId: existingSession.id,
+              });
+            }
+          } catch (stripeErr) {
+            if (env.NODE_ENV !== 'production') {
+              console.log('[CHECKOUT] Session Stripe expirée ou invalide');
+            }
+          }
+        }
+
+        // Session invalide ou inexistante
+        return NextResponse.json(
+          { error: 'Une commande est déjà en cours, rafraîchissez la page et réessayez.' },
+          { status: 409 }
+        );
+      }
+      
+      // Autre erreur DB
+      if (env.NODE_ENV === 'production') {
+        console.error('[CHECKOUT] error:', orderError.code || 'DB_ERROR');
+      } else {
+        console.error('[CHECKOUT] ❌ Erreur création commande:', orderError);
+      }
+      
       return NextResponse.json(
         { error: 'Erreur lors de la création de la commande' },
         { status: 500 }
       );
     }
 
-    createdOrderId = order.id;
+    if (!order) {
+      return NextResponse.json(
+        { error: 'Erreur lors de la création de la commande' },
+        { status: 500 }
+      );
+    }
 
-    // Créer les order_items
-    const orderItems = validatedItems.map(item => ({
+    // ── 9. CRÉER ORDER ITEMS ──
+    const orderItems = enrichedItems.map(item => ({
       order_id: order.id,
-      product_id: item.productId,
-      product_name: item.productName,
-      variant: item.variant,
+      product_id: item.product_id,
+      variant_id: item.variant_id,
+      product_name: item.product_name,
       quantity: item.quantity,
-      unit_price: item.unitPrice * 100, // En centimes
+      unit_price: item.unit_price_cents, // Déjà en centimes
     }));
 
     const { error: itemsError } = await supabase
@@ -270,10 +381,17 @@ export async function POST(request: NextRequest) {
       .insert(orderItems);
 
     if (itemsError) {
-      console.error('[CHECKOUT] ❌ Erreur création items:', itemsError);
+      // Rollback : marquer commande comme failed (audit trail)
+      await supabase
+        .from('orders')
+        .update({ status: 'failed' })
+        .eq('id', order.id);
       
-      // Rollback : supprimer la commande créée
-      await supabase.from('orders').delete().eq('id', order.id);
+      if (env.NODE_ENV === 'production') {
+        console.error('[CHECKOUT] error:', itemsError.code || 'ORDER_ITEMS_ERROR');
+      } else {
+        console.error('[CHECKOUT] Erreur insertion order_items:', itemsError);
+      }
       
       return NextResponse.json(
         { error: 'Erreur lors de la création des items' },
@@ -281,14 +399,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Créer les line_items pour Stripe
-    const stripeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = validatedItems.map(item => ({
+    // ── 10. CRÉER SESSION STRIPE ──
+    const stripeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = enrichedItems.map(item => ({
       price_data: {
         currency: 'eur',
         product_data: {
-          name: `${item.productName} - ${item.variant}`,
+          name: `${item.product_name} - ${item.variant_type}`, // Description propre
         },
-        unit_amount: item.unitPrice * 100, // En centimes
+        unit_amount: item.unit_price_cents, // Déjà en centimes
       },
       quantity: item.quantity,
     }));
@@ -299,8 +417,8 @@ export async function POST(request: NextRequest) {
         payment_method_types: ['card'],
         line_items: stripeLineItems,
         mode: 'payment',
-        success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/checkout/cancel`,
+        success_url: `${env.NEXT_PUBLIC_SITE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${env.NEXT_PUBLIC_SITE_URL}/checkout/cancel`,
         customer_email: user.email!,
         metadata: {
           order_id: order.id,
@@ -308,11 +426,17 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (stripeError: any) {
-      console.error('[CHECKOUT] Erreur Stripe:', stripeError);
+      // Rollback : marquer commande comme failed
+      await supabase
+        .from('orders')
+        .update({ status: 'failed' })
+        .eq('id', order.id);
       
-      // Rollback : supprimer la commande et items créés
-      await supabase.from('order_items').delete().eq('order_id', order.id);
-      await supabase.from('orders').delete().eq('id', order.id);
+      if (env.NODE_ENV === 'production') {
+        console.error('[CHECKOUT] error:', stripeError.code || 'STRIPE_ERROR');
+      } else {
+        console.error('[CHECKOUT] Erreur création session Stripe:', stripeError);
+      }
       
       return NextResponse.json(
         { error: 'Erreur lors de la création de la session de paiement' },
@@ -332,10 +456,15 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('[CHECKOUT] Erreur:', error.message);
+    // Logging minimal en prod
+    if (env.NODE_ENV === 'production') {
+      console.error('[CHECKOUT] error:', error.code || error.name || 'UNKNOWN_ERROR');
+    } else {
+      console.error('[CHECKOUT] Erreur:', error.message, error.stack);
+    }
     
     return NextResponse.json(
-      { error: error.message || 'Erreur serveur' },
+      { error: 'Erreur serveur' },
       { status: 500 }
     );
   }

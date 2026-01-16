@@ -102,12 +102,14 @@ export default function CheckoutPage() {
 
       // Redirection vers Stripe Checkout
       if (result.sessionUrl) {
+        toast.success('Redirection vers le paiement sécurisé...');
         window.location.href = result.sessionUrl;
       } else {
         toast.error('URL de paiement manquante');
         setIsProcessing(false);
       }
     } catch (error) {
+      console.error('[CHECKOUT UI] Erreur:', error);
       toast.error('Erreur lors de la création de la session de paiement');
       setIsProcessing(false);
     }
@@ -157,6 +159,8 @@ export default function CheckoutPage() {
                 <input
                   type="email"
                   id="email"
+                  name="email"
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { stripHtml } from '@/lib/sanitize';
 
 interface ReviewFormProps {
   orderId: string;
@@ -27,6 +28,21 @@ export default function ReviewForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Récupérer l'ID utilisateur au montage
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+        console.log('[ReviewForm] User ID loaded:', user.id);
+      } else {
+        console.log('[ReviewForm] No user found');
+      }
+    };
+    getUser();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,35 +52,48 @@ export default function ReviewForm({
       return;
     }
 
+    if (!userId) {
+      setError('Vous devez être connecté pour laisser un avis');
+      return;
+    }
+
     setIsSubmitting(true);
     setError('');
 
-    // Log de debug (sans données sensibles)
+    // Log de debug complet
     console.log('[Review Submit] Starting', { 
+      user_id: userId,
       product_id: productId, 
       order_id: orderId, 
       rating,
-      has_comment: !!comment.trim()
+      comment_length: comment.trim().length
     });
 
     try {
       const { data, error: insertError } = await supabase
         .from('reviews')
         .insert({
+          user_id: userId,
           product_id: productId,
           order_id: orderId,
           rating,
-          comment: comment.trim() || null,
+          comment: stripHtml(comment.trim()) || null, // XSS protection
         })
         .select();
 
       if (insertError) {
-        // Log technique (pas affiché à l'utilisateur)
-        console.error('[Review Submit] Insert failed', {
+        // Log technique complet en dev
+        console.log('[Review Submit] Insert failed', {
           code: insertError.code,
           message: insertError.message,
           hint: insertError.hint,
+          details: insertError.details,
         });
+
+        // En développement, afficher l'erreur complète
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Review Submit] Full error object:', JSON.stringify(insertError, null, 2));
+        }
 
         // Messages user-friendly basés sur le code d'erreur
         if (insertError.code === '23505') {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { stripHtml } from '@/lib/sanitize';
 
 interface SupportTicket {
   id: string;
@@ -94,7 +95,7 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
         .insert({
           user_id: userId,
           subject,
-          message: message.trim(),
+          message: stripHtml(message.trim()), // XSS protection
           status: 'open',
         });
 

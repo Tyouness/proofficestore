@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
+import { stripHtml } from '@/lib/sanitize';
 
 interface Order {
   id: string;
@@ -71,7 +72,7 @@ export default function NewTicketClient({ orders, userId }: NewTicketClientProps
           user_id: userId,
           order_id: category === 'claim' ? selectedOrderId : null,
           category: category,
-          subject: subject.trim(),
+          subject: stripHtml(subject.trim()), // XSS protection
           status: 'open',
         })
         .select()
@@ -88,7 +89,7 @@ export default function NewTicketClient({ orders, userId }: NewTicketClientProps
           ticket_id: ticket.id,
           sender_id: userId,
           sender_role: 'user',
-          content: message.trim(),
+          content: stripHtml(message.trim()), // XSS protection
         });
 
       if (messageError) {

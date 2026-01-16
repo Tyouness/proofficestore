@@ -32,6 +32,9 @@ export default async function AdminLayout({
             <NavLink href="/admin/licenses" icon="🔑">
               Licences
             </NavLink>
+            <NavLink href="/admin/reviews" icon="⭐">
+              Avis Clients
+            </NavLink>
             
             <div className="pt-4 mt-4 border-t border-gray-700">
               <NavLink href="/" icon="🏠">

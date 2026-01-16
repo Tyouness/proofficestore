@@ -29,15 +29,38 @@ export default async function AccountPage() {
       )
     `)
     .eq('user_id', user.id)
-    .eq('status', 'paid')
     .order('created_at', { ascending: false });
 
   if (error) {
     console.error('[ACCOUNT] Erreur commandes:', error);
   }
 
-  // Récupérer les licences pour toutes les commandes (RLS appliqué automatiquement)
-  const orderIds = orders?.map((o: any) => o.id) || [];
+  // Filtrer seulement les commandes payées pour affichage
+  const paidOrders = orders?.filter((o: any) => o.status === 'paid') || [];
+
+  // Récupérer les UUIDs réels des produits à partir des slugs
+  const productSlugs = new Set<string>();
+  paidOrders.forEach((order: any) => {
+    order.order_items?.forEach((item: any) => {
+      productSlugs.add(item.product_id);
+    });
+  });
+
+  const { data: products } = productSlugs.size > 0
+    ? await supabase
+        .from('products')
+        .select('id, slug')
+        .in('slug', Array.from(productSlugs))
+    : { data: [] };
+
+  // Créer un mapping slug → UUID
+  const slugToUuidMap = new Map<string, string>();
+  products?.forEach((product: any) => {
+    slugToUuidMap.set(product.slug, product.id);
+  });
+
+  // Récupérer les licences pour toutes les commandes payées (RLS appliqué automatiquement)
+  const orderIds = paidOrders.map((o: any) => o.id);
   
   const { data: licenses, error: licensesError } = orderIds.length > 0
     ? await supabase
@@ -51,12 +74,13 @@ export default async function AccountPage() {
     console.error('[ACCOUNT] Erreur licenses:', licensesError);
   }
 
-  // Récupérer les avis existants pour cet utilisateur
+  // Récupérer les avis existants pour cet utilisateur (uniquement actifs)
   const { data: existingReviews, error: reviewsError } = orderIds.length > 0
     ? await supabase
         .from('reviews')
         .select('order_id, product_id, rating, comment, created_at')
         .eq('user_id', user.id)
+        .eq('is_deleted', false)
         .in('order_id', orderIds)
     : { data: [], error: null };
 
@@ -92,7 +116,7 @@ export default async function AccountPage() {
       </div>
 
       {/* Liste des commandes */}
-      {!orders || orders.length === 0 ? (
+      {!paidOrders || paidOrders.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
           <div className="text-6xl mb-4">📦</div>
           <h2 className="text-2xl font-semibold text-gray-700 mb-2">
@@ -110,7 +134,7 @@ export default async function AccountPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {orders.map((order: any) => (
+          {paidOrders.map((order: any) => (
             <div
               key={order.id}
               className="bg-white rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
@@ -140,8 +164,10 @@ export default async function AccountPage() {
                 {/* Produits et licences */}
                 <div className="p-6 space-y-4">
                   {order.order_items?.map((item: any, idx: number) => {
+                    // Convertir le slug en UUID réel
+                    const realProductId = slugToUuidMap.get(item.product_id) || item.product_id;
                     const licenseKeys = licenseMap.get(`${order.id}-${item.product_id}`) || [];
-                    const existingReview = reviewMap.get(`${order.id}-${item.product_id}`);
+                    const existingReview = reviewMap.get(`${order.id}-${realProductId}`);
                     
                     return (
                       <div
@@ -156,6 +182,12 @@ export default async function AccountPage() {
                             <p className="text-sm text-gray-500">
                               Quantité : {item.quantity}
                             </p>
+                            {/* Debug: afficher les UUIDs en dev */}
+                            {process.env.NODE_ENV === 'development' && (
+                              <p className="text-xs text-gray-400 mt-1 font-mono">
+                                Slug: {item.product_id} | UUID: {realProductId} | Order: {order.id}
+                              </p>
+                            )}
                           </div>
                         </div>
 
@@ -236,7 +268,7 @@ export default async function AccountPage() {
                             {/* Formulaire d'avis */}
                             <ReviewForm
                               orderId={order.id}
-                              productId={item.product_id}
+                              productId={realProductId}
                               productName={item.product_name}
                               existingReview={existingReview}
                             />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { stripHtml } from '@/lib/sanitize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
         ticket_id: ticketId,
         sender_id: adminId,
         sender_role: 'admin',
-        content: content ? content.trim() : '',
+        content: content ? stripHtml(content.trim()) : '', // XSS protection SERVER
         attachment_url: attachment_url || null,
         file_type: file_type || null,
       })

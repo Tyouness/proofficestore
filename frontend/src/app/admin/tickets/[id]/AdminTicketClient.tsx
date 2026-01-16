@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { stripHtml } from '@/lib/sanitize';
 
 interface Message {
   id: string;
@@ -211,7 +212,7 @@ export default function AdminTicketClient({
       const messagePayload = {
         ticketId,
         adminId,
-        content: messageContent || '',
+        content: stripHtml(messageContent) || '', // XSS protection
         attachment_url: attachmentData?.url || null,
         file_type: attachmentData?.type || null,
       };

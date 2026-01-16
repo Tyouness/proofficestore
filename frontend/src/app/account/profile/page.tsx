@@ -1,43 +1,14 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 import ProfileClient from './ProfileClient';
 
 export default async function ProfilePage() {
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
-
-  if (!authCookie) {
-    redirect('/login');
-  }
-
-  let session;
-  try {
-    session = JSON.parse(authCookie.value);
-  } catch {
-    redirect('/login');
-  }
-
-  if (!session?.access_token) {
-    redirect('/login');
-  }
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      },
-    }
-  );
+  const supabase = await createServerClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (!user || userError) {
-    redirect('/login');
+    redirect('/login?redirect=/account/profile');
   }
 
   // Charger le profil

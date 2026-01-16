@@ -138,11 +138,12 @@ export default async function ProductPage({ params }: PageProps) {
     description: 'Livraison standard'
   };
 
-  // Récupérer les avis du produit
+  // Récupérer les avis du produit (uniquement les actifs)
   const { data: reviews, error: reviewsError } = await supabaseAdmin
     .from('reviews')
     .select('id, rating, comment, created_at')
     .eq('product_id', product.id)
+    .eq('is_deleted', false)
     .order('created_at', { ascending: false })
     .limit(10);
 
@@ -349,7 +350,7 @@ export default async function ProductPage({ params }: PageProps) {
 
               {/* Add to Cart Button */}
               <ProductActions 
-                productId={product.id} 
+                productId={product.slug.replace(/-digital-key$|-dvd$|-usb$/, '')} 
                 productName={product.name} 
                 basePrice={product.base_price} 
               />

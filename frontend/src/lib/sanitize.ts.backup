@@ -1,0 +1,86 @@
+/**
+ * 🧹 HTML SANITIZATION
+ * 
+ * Nettoie tout HTML utilisateur AVANT stockage en DB.
+ * Protection contre XSS (Cross-Site Scripting).
+ * 
+ * Usage:
+ * import { sanitizeHtml } from '@/lib/sanitize';
+ * const clean = sanitizeHtml(userInput);
+ */
+
+// Import conditionnel : server-side ou client-side
+let DOMPurify: any;
+
+if (typeof window === 'undefined') {
+  // Server-side: utiliser jsdom
+  const { JSDOM } = require('jsdom');
+  const createDOMPurify = require('dompurify');
+  const window = new JSDOM('').window;
+  DOMPurify = createDOMPurify(window);
+} else {
+  // Client-side: utiliser le DOM natif
+  DOMPurify = require('isomorphic-dompurify').default;
+}
+
+// ── Configuration stricte ──
+const ALLOWED_TAGS = [
+  'p', 'br', 'strong', 'em', 'u', 'a',
+  'ul', 'ol', 'li',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'blockquote', 'code', 'pre',
+];
+
+const ALLOWED_ATTR = ['href', 'title', 'target', 'rel'];
+
+const ALLOWED_URI_REGEXP = /^(?:(?:https?):\/\/|mailto:|tel:)/i;
+
+// ── Sanitize HTML ──
+export function sanitizeHtml(dirty: string): string {
+  if (!dirty || typeof dirty !== 'string') return '';
+
+  const clean = DOMPurify.sanitize(dirty, {
+    ALLOWED_TAGS,
+    ALLOWED_ATTR,
+    ALLOWED_URI_REGEXP,
+    ALLOW_DATA_ATTR: false,
+    ALLOW_UNKNOWN_PROTOCOLS: false,
+    SAFE_FOR_TEMPLATES: true,
+  });
+
+  return clean.trim();
+}
+
+// ── Strip ALL HTML (texte brut uniquement) ──
+export function stripHtml(html: string): string {
+  if (!html || typeof html !== 'string') return '';
+
+  const clean = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [], // Aucun tag
+    ALLOWED_ATTR: [],
+  });
+
+  return clean.trim();
+}
+
+/**
+ * Sanitize HTML pour affichage (texte uniquement par défaut)
+ * Utilise stripHtml pour convertir en texte brut
+ */
+export function sanitizeHtml(html: string): string {
+  return stripHtml(html);
+}
+
+/**
+ * Alias pour affichage
+ */
+export function sanitizeForDisplay(html: string): string {
+  return stripHtml(html);
+}
+
+/**
+ * Alias pour stockage
+ */
+export function sanitizeForStorage(text: string): string {
+  return stripHtml(text);
+}
