@@ -402,10 +402,7 @@ export async function POST(req: NextRequest) {
           console.log('[WEBHOOK] 📥 RPC réponse:', { assignedKeys, rpcError });
 
           if (rpcError) {
-            console.error('[WEBHOOK] ❌ Erreur RPC:', rpcError); remainingToAssign
-            });
-
-          if (rpcError) {
+            console.error('[WEBHOOK] ❌ Erreur RPC:', rpcError);
             throw rpcError;
           }
 
