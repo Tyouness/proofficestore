@@ -360,15 +360,15 @@ export async function POST(req: NextRequest) {
         // Vérifier si des licences sont déjà attribuées (idempotence)
         const { data: alreadyAssigned } = await supabaseAdmin
           .from('licenses')
-          .select('license_key')
+          .select('key_code')
           .eq('order_id', order.id)
-          .eq('variant_id', item.variant_id);
+          .eq('product_id', item.product_id);
 
         const alreadyCount = alreadyAssigned?.length || 0;
 
         if (alreadyCount >= item.quantity) {
           totalLicenses += alreadyCount;
-          allLicenseKeys.push(...(alreadyAssigned || []).map(l => l.license_key));
+          allLicenseKeys.push(...(alreadyAssigned || []).map(l => l.key_code));
           results.push({ 
             product_id: item.product_id, 
             assigned: alreadyCount, 
@@ -384,7 +384,7 @@ export async function POST(req: NextRequest) {
           const { data: assignedKeys, error: rpcError } = await supabaseAdmin
             .rpc('assign_licenses_atomic', {
               p_order_id: order.id,
-              p_variant_id: item.variant_id,
+              p_variant_id: item.variant_id || null,
               p_quantity: remainingToAssign
             });
 
