@@ -40,4 +40,73 @@ body {
   .space-y-extra-airy > * + * {
     margin-top: 6rem; /* 96px */
   }
+
+  /* Animations modernes et légères */
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  .animate-slideDown {
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Carrousel moderne avec scroll-snap (CSS pur, ultra performant) */
+  .carousel-container {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+  
+  .carousel-container::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+  
+  .carousel-item {
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+
+  /* Indicateurs de carousel */
+  .carousel-dots {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    margin-top: 1rem;
+  }
+  
+  .carousel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  
+  .carousel-dot.active {
+    width: 24px;
+    border-radius: 4px;
+    background: #2563eb;
+  }
 }
