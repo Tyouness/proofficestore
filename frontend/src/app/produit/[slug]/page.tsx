@@ -414,19 +414,76 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Long Description */}
+          {/* Long Description avec collapse */}
           <div className="border-t border-gray-200 p-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Description détaillée</h2>
             <div className="prose max-w-none text-gray-600 leading-relaxed space-y-4">
-              {seoData.longDescription.split('\n\n').map((paragraph, index) => (
-                <p key={index} dangerouslySetInnerHTML={{ 
-                  __html: paragraph
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                }} />
-              ))}
+              {(() => {
+                const paragraphs = seoData.longDescription.split('\n\n');
+                const firstPart = paragraphs.slice(0, 2); // Premier tiers
+                const secondPart = paragraphs.slice(2, 4); // Deuxième tiers
+                const thirdPart = paragraphs.slice(4); // Reste
+                
+                return (
+                  <>
+                    {firstPart.map((paragraph, index) => (
+                      <p key={`first-${index}`} dangerouslySetInnerHTML={{ 
+                        __html: paragraph
+                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                      }} />
+                    ))}
+                    
+                    <details className="group">
+                      <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
+                        <span>Lire la suite</span>
+                        <svg className="w-5 h-5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <div className="space-y-4 mt-4">
+                        {secondPart.map((paragraph, index) => (
+                          <p key={`second-${index}`} dangerouslySetInnerHTML={{ 
+                            __html: paragraph
+                              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                          }} />
+                        ))}
+                        
+                        {thirdPart.length > 0 && (
+                          <details className="group/nested">
+                            <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
+                              <span>Continuer la lecture</span>
+                              <svg className="w-5 h-5 transition-transform group-open/nested:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </summary>
+                            <div className="space-y-4 mt-4">
+                              {thirdPart.map((paragraph, index) => (
+                                <p key={`third-${index}`} dangerouslySetInnerHTML={{ 
+                                  __html: paragraph
+                                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                }} />
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </details>
+                  </>
+                );
+              })()}
             </div>
           </div>
+        </div>
+        
+        {/* E-E-A-T Section (Garantie Microsoft) - Juste après la description pour inspirer confiance */}
+        <div className="mt-8">
+          <ProductEeatSection 
+            productName={product.name}
+            isPerpetual={true}
+          />
         </div>
 
         {/* Ce que vous recevez */}
@@ -650,12 +707,14 @@ export default async function ProductPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <ProductFaq 
-          productName={product.name}
-          productFamily={product.family}
-          deliveryType={product.delivery_type}
-        />
+        {/* FAQ Section - Avant les avis pour meilleure visibilité */}
+        <div className="mt-8">
+          <ProductFaq 
+            productName={product.name}
+            productFamily={product.family}
+            deliveryType={product.delivery_type}
+          />
+        </div>
 
         {/* Avis Clients Section */}
         <div className="mt-8 bg-white rounded-lg shadow-sm p-8">
@@ -756,19 +815,6 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
           )}
         </div>
-
-        {/* E-E-A-T Section */}
-        <ProductEeatSection 
-          productName={product.name}
-          isPerpetual={true}
-        />
-
-        {/* FAQ SEO Component */}
-        <ProductFaq 
-          productName={product.name}
-          productFamily={product.family}
-          deliveryType={product.delivery_type}
-        />
 
         {/* Internal Links */}
         <ProductInternalLinks 
