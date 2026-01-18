@@ -96,17 +96,31 @@ body {
   }
   
   .carousel-dot {
-    width: 8px;
-    height: 8px;
+    /* Zone tactile 44x44px (WCAG AAA) avec dot visible 10x10px */
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: transparent;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .carousel-dot::before {
+    content: '';
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     background: #d1d5db;
     transition: all 0.3s ease;
-    cursor: pointer;
   }
   
-  .carousel-dot.active {
-    width: 24px;
-    border-radius: 4px;
+  .carousel-dot.active::before {
+    width: 28px;
+    border-radius: 5px;
     background: #2563eb;
   }
 }

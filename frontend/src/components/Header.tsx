@@ -10,17 +10,19 @@ export default function Header() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Vérifier si l'utilisateur est connecté
+  // Vérifier si l'utilisateur est connecté (simplifié sans appel API)
   useEffect(() => {
-    const checkAuth = async () => {
+    // Vérification locale via cookie ou localStorage
+    const checkAuthLocal = () => {
       try {
-        const response = await fetch('/api/auth/check', { credentials: 'include' });
-        setIsLoggedIn(response.ok);
+        // Vérifie si un cookie de session existe (sans faire d'appel API)
+        const hasSession = document.cookie.includes('supabase-auth-token');
+        setIsLoggedIn(hasSession);
       } catch {
         setIsLoggedIn(false);
       }
     };
-    checkAuth();
+    checkAuthLocal();
   }, []);
 
   // Fermer les menus au clic extérieur
@@ -72,7 +74,7 @@ export default function Header() {
           </button>
 
           {/* Panier */}
-          <Link href="/cart" className="relative group p-2">
+          <Link href="/cart" className="relative group p-2" aria-label="Voir le panier">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 group-hover:text-black transition-colors">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.11 4.634c.8 3.327-.19 6.747-2.612 9.2a43.122 43.122 0 0 1-1.287 1.206 43.122 43.122 0 0 1-1.287-1.206c-2.422-2.453-3.412-5.873-2.612-9.2l1.11-4.634c.15-.623.708-1.066 1.35-1.066h6.182c.642 0 1.2.443 1.35 1.066Z" />
             </svg>

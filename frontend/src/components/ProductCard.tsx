@@ -42,10 +42,12 @@ export default function ProductCard({ product }: { product: Product }) {
               <Image 
                 src={localImage}
                 alt={imageAlt}
-                width={400}
-                height={300}
+                width={300}
+                height={225}
+                sizes="(max-width: 640px) 85vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className="w-full h-full object-contain p-4"
-                priority={false}
+                loading="lazy"
+                quality={85}
               />
             </div>
           ) : product.image_url ? (
