@@ -15,6 +15,42 @@ interface Order {
 
 export default function OrdersTable({ orders }: { orders: Order[] }) {
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [downloadingProofId, setDownloadingProofId] = useState<string | null>(null);
+
+  // Fonction pour télécharger la preuve d'achat
+  const handleDownloadProof = async (orderId: string) => {
+    setDownloadingProofId(orderId);
+    try {
+      const response = await fetch(`/api/documents/proof-of-purchase/${orderId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.error || 'Impossible de générer la preuve d\'achat');
+        return;
+      }
+
+      // Récupérer le blob PDF
+      const blob = await response.blob();
+      
+      // Créer un lien de téléchargement temporaire
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `preuve-achat-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+    } catch (error) {
+      console.error('[Admin PDF Download Error]', error);
+      alert('Erreur lors du téléchargement. Veuillez réessayer.');
+    } finally {
+      setDownloadingProofId(null);
+    }
+  };
 
   return (
     <>
@@ -118,12 +154,32 @@ export default function OrdersTable({ orders }: { orders: Order[] }) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {order.status === 'paid' && (
-                      <button
-                        onClick={() => setViewingOrder(order)}
-                        className="text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        Voir clés
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => setViewingOrder(order)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Voir clés
+                        </button>
+                        <button
+                          onClick={() => handleDownloadProof(order.id)}
+                          disabled={downloadingProofId === order.id}
+                          className="text-green-600 hover:text-green-800 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Télécharger la preuve d'achat PDF"
+                        >
+                          {downloadingProofId === order.id ? (
+                            <span className="flex items-center gap-1">
+                              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              PDF...
+                            </span>
+                          ) : (
+                            '📄 Preuve'
+                          )}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
