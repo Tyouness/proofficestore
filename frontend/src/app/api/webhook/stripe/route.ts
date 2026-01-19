@@ -299,13 +299,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, status: 'already_paid' });
     }
 
-    // Mise à jour status → paid + stripe_session_id + payment_intent
+    // Mise à jour status → paid + stripe_session_id + payment_intent + ⚠️ paid_at
     const { error: updateError } = await supabaseAdmin
       .from('orders')
       .update({ 
         status: 'paid', 
         stripe_session_id: stripeSessionId,
-        stripe_payment_intent: paymentIntentId
+        stripe_payment_intent: paymentIntentId,
+        paid_at: new Date().toISOString() // ⚠️ CRITIQUE : Date exacte du paiement
       })
       .eq('id', order.id);
 
