@@ -79,9 +79,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const productImage = localImage 
     ? `https://www.allkeymasters.com${localImage}`
     : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
-  const productImage = localImage 
-    ? `https://www.allkeymasters.com${localImage}`
-    : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
 
   return {
     title: seoData.title,
