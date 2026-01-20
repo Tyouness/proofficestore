@@ -154,8 +154,9 @@ export async function GET(
 
     // 7. ⚠️ COHÉRENCE : Vérifier que sum(items) correspond au total
     const itemsTotal = itemsWithTotal.reduce((sum, item) => sum + item.total_price, 0);
-    if (Math.abs(itemsTotal - order.total_amount) > 1) { // Tolérance 1 centime
-      console.error('[PDF] Incohérence totaux:', { itemsTotal, orderTotal: order.total_amount });
+    const orderTotalEuros = order.total_amount / 100; // Centimes → Euros
+    if (Math.abs(itemsTotal - orderTotalEuros) > 0.01) { // Tolérance 1 centime
+      console.error('[PDF] Incohérence totaux:', { itemsTotal, orderTotal: orderTotalEuros });
       // On continue mais on log l'erreur (à investiguer côté métier)
     }
 
