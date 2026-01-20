@@ -363,12 +363,16 @@ export async function POST(req: NextRequest) {
     if (items && items.length > 0) {
       for (const item of items) {
         
+        // Extraire le slug de base en retirant le suffixe du format
+        // Ex: 'office-2024-professional-plus-digital-key' → 'office-2024-professional-plus'
+        const baseProductId = item.product_id.replace(/-digital-key$|-dvd$|-usb$/, '');
+        
         // Vérifier si des licences sont déjà attribuées (idempotence)
         const { data: alreadyAssigned } = await supabaseAdmin
           .from('licenses')
           .select('key_code')
           .eq('order_id', order.id)
-          .eq('product_id', item.product_id);
+          .eq('product_id', baseProductId);
 
         const alreadyCount = alreadyAssigned?.length || 0;
 
@@ -387,9 +391,9 @@ export async function POST(req: NextRequest) {
         
         try {
           const { data: assignedKeys, error: rpcError } = await supabaseAdmin
-            .rpc('assign_licenses_atomic', {
+            .rpc('assign_licenses_by_product', {
               p_order_id: order.id,
-              p_variant_id: null,
+              p_product_id: baseProductId,
               p_quantity: remainingToAssign
             });
 

@@ -5,6 +5,8 @@ import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import { getProductImagePath } from '@/lib/product-images';
 import { generateProductSeo } from '@/lib/product-seo';
+import { generateProductVariantSeo, calculateVariantPrice, type DeliveryFormat } from '@/lib/product-variant-seo';
+import FormatSelector from '@/components/FormatSelector';
 import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
 import ProductEeatSection from '@/components/seo/ProductEeatSection';
 import ProductFaq from '@/components/seo/ProductFaq';
@@ -44,11 +46,34 @@ interface PageProps {
   };
 }
 
+/**
+ * Détecte le format de livraison depuis le slug de l'URL
+ * Ex: 'office-2019-pro-plus-usb' → 'usb'
+ */
+function detectDeliveryFormat(slug: string): DeliveryFormat {
+  if (slug.endsWith('-digital-key')) return 'digital';
+  if (slug.endsWith('-dvd')) return 'dvd';
+  if (slug.endsWith('-usb')) return 'usb';
+  // Par défaut, si pas de suffixe, on considère que c'est digital
+  return 'digital';
+}
+
+/**
+ * Extrait le slug de base en retirant le suffixe du format
+ * Ex: 'office-2019-pro-plus-usb' → 'office-2019-pro-plus'
+ */
+function getBaseSlug(slug: string): string {
+  return slug.replace(/-digital-key$|-dvd$|-usb$/, '');
+}
+
 async function getProduct(slug: string): Promise<Product | null> {
+  // Extraire le slug de base pour chercher le produit
+  const baseSlug = getBaseSlug(slug);
+  
   const { data, error } = await supabaseAdmin
     .from('products')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', baseSlug)
     .eq('is_active', true)
     .single();
 
@@ -71,11 +96,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  // Générer le contenu SEO unique pour ce produit
-  const seoData = generateProductSeo(product);
+  // Détecter le format de livraison depuis le slug
+  const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
+  
+  // Générer le contenu SEO unique pour ce produit ET ce format
+  const seoData = generateProductVariantSeo(product, deliveryFormat);
+  
+  // Calculer le prix ajusté selon le format
+  const finalPrice = calculateVariantPrice(product.base_price, deliveryFormat);
 
-  const productUrl = `https://www.allkeymasters.com/produit/${product.slug}`;
-  const localImage = getProductImagePath(product.slug);
+  const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
+  const baseSlug = getBaseSlug(resolvedParams.slug);
+  const localImage = getProductImagePath(baseSlug);
   const productImage = localImage 
     ? `https://www.allkeymasters.com${localImage}`
     : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
@@ -161,8 +193,18 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  // Générer le contenu SEO unique pour ce produit
-  const seoData = generateProductSeo(product);
+  // Détecter le format de livraison depuis le slug
+  const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
+  const baseSlug = getBaseSlug(resolvedParams.slug);
+  
+  // Générer le contenu SEO unique pour ce produit ET ce format
+  const seoData = generateProductVariantSeo(product, deliveryFormat);
+  
+  // Calculer le prix ajusté selon le format
+  const finalPrice = calculateVariantPrice(product.base_price, deliveryFormat);
+
+  // URL canonique du produit avec le format
+  const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
 
   const deliveryInfo = DELIVERY_TYPE_LABELS[product.delivery_type] || {
     label: product.delivery_type,
@@ -206,9 +248,9 @@ export default async function ProductPage({ params }: PageProps) {
     },
     offers: {
       '@type': 'Offer',
-      url: `https://www.allkeymasters.com/produit/${product.slug}`,
+      url: productUrl,
       priceCurrency: 'EUR',
-      price: product.base_price.toFixed(2),
+      price: finalPrice.toFixed(2),
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       seller: {
@@ -342,22 +384,24 @@ export default async function ProductPage({ params }: PageProps) {
               <div className="mb-6">
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900">
-                    {product.base_price.toFixed(2)} €
+                    {finalPrice.toFixed(2)} €
                   </span>
                   <span className="ml-2 text-gray-500">TTC</span>
                 </div>
+                {deliveryFormat !== 'digital' && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Prix de base: {product.base_price.toFixed(2)} € + {(finalPrice - product.base_price).toFixed(2)} € (support physique)
+                  </p>
+                )}
               </div>
 
-              {/* Delivery Type */}
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <div className="flex items-center">
-                  <span className="text-2xl mr-3">{deliveryInfo.icon}</span>
-                  <div>
-                    <p className="font-semibold text-gray-900">{deliveryInfo.label}</p>
-                    <p className="text-sm text-gray-600">{deliveryInfo.description}</p>
-                  </div>
-                </div>
-              </div>
+              {/* Format Selector */}
+              <FormatSelector
+                currentFormat={deliveryFormat}
+                baseSlug={baseSlug}
+                basePrice={product.base_price}
+                className="mb-6"
+              />
 
               {/* Specifications */}
               <div className="mb-6 border-t border-b border-gray-200 py-4">
@@ -382,9 +426,9 @@ export default async function ProductPage({ params }: PageProps) {
 
               {/* Add to Cart Button */}
               <ProductActions 
-                productId={product.slug.replace(/-digital-key$|-dvd$|-usb$/, '')} 
-                productName={product.name} 
-                basePrice={product.base_price} 
+                productId={baseSlug} 
+                productName={`${product.name} (${deliveryInfo.label})`} 
+                basePrice={finalPrice} 
               />
 
               {/* Trust Badges */}
@@ -684,19 +728,19 @@ export default async function ProductPage({ params }: PageProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                <tr className={product.delivery_type === 'digital_key' ? 'bg-blue-50' : ''}>
+                <tr className={deliveryFormat === 'digital' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">Clé Numérique ⚡</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Instantané</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Non</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Activation rapide, installation via téléchargement</td>
                 </tr>
-                <tr className={product.delivery_type === 'dvd' ? 'bg-blue-50' : ''}>
+                <tr className={deliveryFormat === 'dvd' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">DVD 💿</td>
                   <td className="px-4 py-3 text-sm text-gray-700">3-5 jours ouvrés</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Oui</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Installation sans connexion Internet, collection physique</td>
                 </tr>
-                <tr className={product.delivery_type === 'usb' ? 'bg-blue-50' : ''}>
+                <tr className={deliveryFormat === 'usb' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">Clé USB 🔌</td>
                   <td className="px-4 py-3 text-sm text-gray-700">3-5 jours ouvrés</td>
                   <td className="px-4 py-3 text-sm text-gray-700">Oui (Bootable)</td>
