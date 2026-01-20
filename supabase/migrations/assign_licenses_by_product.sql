@@ -35,8 +35,7 @@ BEGIN
   updated_licenses AS (
     UPDATE licenses
     SET is_used = TRUE,
-        order_id = p_order_id,
-        assigned_at = NOW()
+        order_id = p_order_id
     FROM selected_licenses
     WHERE licenses.id = selected_licenses.id
     RETURNING licenses.key_code

@@ -53,13 +53,12 @@ export async function GET(
       .from('orders')
       .select(`
         id,
-        order_number,
         created_at,
         paid_at,
         total_amount,
         status,
         user_id,
-        customer_email,
+        email_client,
         proof_snapshot
       `)
       .eq('id', order_id)
@@ -117,7 +116,7 @@ export async function GET(
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="preuve-achat-${order.order_number}.pdf"`,
+          'Content-Disposition': `attachment; filename="preuve-achat-${order.id}.pdf"`,
           'Cache-Control': 'no-store, must-revalidate',
           'Pragma': 'no-cache',
           'Expires': '0',
@@ -154,9 +153,9 @@ export async function GET(
 
     // 8. ⚠️ SNAPSHOT IMMUABLE : Figer les données à l'instant T
     const proofData = {
-      orderNumber: order.order_number,
+      orderNumber: order.id.substring(0, 8).toUpperCase(), // ID court pour lisibilité
       orderDate: order.paid_at, // ✅ Date de paiement réelle (pas created_at)
-      customerEmail: order.customer_email,
+      customerEmail: order.email_client,
       paymentMethod: 'Carte bancaire (Stripe)',
       items: orderItems.map(item => ({
         product_name: item.product_name,
@@ -199,7 +198,7 @@ export async function GET(
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="preuve-achat-${order.order_number}.pdf"`,
+        'Content-Disposition': `attachment; filename="preuve-achat-${order.id}.pdf"`,
         'Cache-Control': 'no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',

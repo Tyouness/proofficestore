@@ -5,8 +5,6 @@ import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import { getProductImagePath } from '@/lib/product-images';
 import { generateProductSeo } from '@/lib/product-seo';
-import { generateProductVariantSeo, calculateVariantPrice, type DeliveryFormat } from '@/lib/product-variant-seo';
-import FormatSelector from '@/components/FormatSelector';
 import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
 import ProductEeatSection from '@/components/seo/ProductEeatSection';
 import ProductFaq from '@/components/seo/ProductFaq';
@@ -46,48 +44,13 @@ interface PageProps {
   };
 }
 
-/**
- * Détecte le format de livraison depuis le slug de l'URL
- * Ex: 'office-2019-pro-plus-usb' → 'usb'
- */
-function detectDeliveryFormat(slug: string): DeliveryFormat {
-  if (slug.endsWith('-digital-key')) return 'digital';
-  if (slug.endsWith('-dvd')) return 'dvd';
-  if (slug.endsWith('-usb')) return 'usb';
-  // Par défaut, si pas de suffixe, on considère que c'est digital
-  return 'digital';
-}
-
-/**
- * Extrait le slug de base en retirant le suffixe du format
- * Ex: 'office-2019-pro-plus-usb' → 'office-2019-pro-plus'
- */
-function getBaseSlug(slug: string): string {
-  return slug.replace(/-digital-key$|-dvd$|-usb$/, '');
-}
-
 async function getProduct(slug: string): Promise<Product | null> {
-  // D'abord essayer avec le slug complet (nouveau système)
-  let { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('products')
     .select('*')
     .eq('slug', slug)
     .eq('is_active', true)
     .single();
-
-  // Si pas trouvé, essayer avec le slug de base (compatibilité)
-  if (error || !data) {
-    const baseSlug = getBaseSlug(slug);
-    const result = await supabaseAdmin
-      .from('products')
-      .select('*')
-      .eq('slug', baseSlug)
-      .eq('is_active', true)
-      .single();
-    
-    data = result.data;
-    error = result.error;
-  }
 
   if (error || !data) return null;
   return data as Product;
@@ -108,18 +71,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  // Détecter le format de livraison depuis le slug
-  const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
+  // Générer le contenu SEO unique pour ce produit
+  const seoData = generateProductSeo(product);
   
-  // Générer le contenu SEO unique pour ce produit ET ce format
-  const seoData = generateProductVariantSeo(product, deliveryFormat);
-  
-  // Calculer le prix ajusté selon le format
-  const finalPrice = calculateVariantPrice(product.base_price, deliveryFormat);
-
   const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
-  const baseSlug = getBaseSlug(resolvedParams.slug);
-  const localImage = getProductImagePath(baseSlug);
+  const localImage = getProductImagePath(product.slug);
+  const productImage = localImage 
+    ? `https://www.allkeymasters.com${localImage}`
+    : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
   const productImage = localImage 
     ? `https://www.allkeymasters.com${localImage}`
     : (product.image_url?.startsWith('http') ? product.image_url : `https://www.allkeymasters.com${product.image_url || '/images/default-product.jpg'}`);
