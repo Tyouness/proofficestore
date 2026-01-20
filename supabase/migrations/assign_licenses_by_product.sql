@@ -23,7 +23,7 @@ BEGIN
   -- FOR UPDATE SKIP LOCKED évite les deadlocks
   RETURN QUERY
   WITH selected_licenses AS (
-    SELECT l.id, l.license_key, l.key_code
+    SELECT l.id, l.key_code
     FROM licenses l
     WHERE l.product_id = p_product_id
       AND l.is_used = FALSE
@@ -39,10 +39,10 @@ BEGIN
         assigned_at = NOW()
     FROM selected_licenses
     WHERE licenses.id = selected_licenses.id
-    RETURNING licenses.license_key, licenses.key_code
+    RETURNING licenses.key_code
   )
   SELECT 
-    updated_licenses.license_key,
+    updated_licenses.key_code AS license_key,
     updated_licenses.key_code
   FROM updated_licenses;
   
