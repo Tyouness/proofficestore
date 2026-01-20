@@ -129,10 +129,9 @@ export async function GET(
       .from('order_items')
       .select(`
         product_name,
-        variant_name,
+        variant,
         quantity,
-        unit_price,
-        total_price
+        unit_price
       `)
       .eq('order_id', order_id)
       .order('created_at', { ascending: true });
@@ -144,8 +143,17 @@ export async function GET(
       );
     }
 
+    // Calculer total_price pour chaque item
+    const itemsWithTotal = orderItems.map(item => ({
+      product_name: item.product_name,
+      variant_name: item.variant || 'digital',
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total_price: item.unit_price * item.quantity
+    }));
+
     // 7. ⚠️ COHÉRENCE : Vérifier que sum(items) correspond au total
-    const itemsTotal = orderItems.reduce((sum, item) => sum + item.total_price, 0);
+    const itemsTotal = itemsWithTotal.reduce((sum, item) => sum + item.total_price, 0);
     if (Math.abs(itemsTotal - order.total_amount) > 1) { // Tolérance 1 centime
       console.error('[PDF] Incohérence totaux:', { itemsTotal, orderTotal: order.total_amount });
       // On continue mais on log l'erreur (à investiguer côté métier)
@@ -157,13 +165,7 @@ export async function GET(
       orderDate: order.paid_at, // ✅ Date de paiement réelle (pas created_at)
       customerEmail: order.email_client,
       paymentMethod: 'Carte bancaire (Stripe)',
-      items: orderItems.map(item => ({
-        product_name: item.product_name,
-        variant_name: item.variant_name,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-      })),
+      items: itemsWithTotal,
       totalAmount: order.total_amount,
       generatedAt: new Date().toISOString(), // Date de première génération
       templateVersion: '1.0.0', // Versioning du template
