@@ -318,14 +318,12 @@ export async function createStripeCheckoutSession(
     }> = [];
 
     for (const item of items) {
-      // Construire le slug complet
-      const variantSuffix = item.variant === 'digital' ? 'digital-key' : item.variant;
-      const fullSlug = `${item.productId}-${variantSuffix}`;
-      const product = productsMap.get(fullSlug);
+      // Le productId est déjà le slug complet (ex: 'office-2024-professional-plus-digital-key')
+      const product = productsMap.get(item.productId);
       
       if (!product) {
-        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', fullSlug);
-        return { success: false, error: `Produit ${item.productId} (${item.variant}) introuvable` };
+        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', item.productId);
+        return { success: false, error: `Produit ${item.productId} introuvable` };
       }
 
       // Le prix est déjà dans base_price selon le delivery_type
@@ -335,7 +333,7 @@ export async function createStripeCheckoutSession(
       totalAmountEuros += lineTotalEuros;
 
       orderItems.push({
-        product_id: fullSlug,  // Utiliser le slug complet
+        product_id: item.productId,  // Utiliser le slug complet directement
         product_name: product.name,
         variant: item.variant,
         unit_price: eurosToCents(unitPriceEuros),
