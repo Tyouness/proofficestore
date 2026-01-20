@@ -5,6 +5,7 @@ import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import { getProductImagePath } from '@/lib/product-images';
 import { generateProductSeo } from '@/lib/product-seo';
+import { generateProductVariantSeo, detectDeliveryFormat } from '@/lib/product-variant-seo';
 import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
 import ProductEeatSection from '@/components/seo/ProductEeatSection';
 import ProductFaq from '@/components/seo/ProductFaq';
@@ -161,8 +162,11 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  // Générer le contenu SEO pour ce produit
-  const seoData = generateProductSeo(product);
+  // Détecter le format de livraison depuis le slug pour le SEO
+  const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
+  
+  // Générer le contenu SEO unique pour ce produit ET ce format
+  const seoData = generateProductVariantSeo(product, deliveryFormat);
 
   // URL canonique du produit
   const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;

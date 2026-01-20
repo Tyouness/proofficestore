@@ -50,6 +50,16 @@ interface Product {
 }
 
 /**
+ * Détecte le format de livraison depuis le slug du produit
+ */
+export function detectDeliveryFormat(slug: string): DeliveryFormat {
+  if (slug.endsWith('-digital-key')) return 'digital';
+  if (slug.endsWith('-dvd')) return 'dvd';
+  if (slug.endsWith('-usb')) return 'usb';
+  return 'digital'; // Par défaut
+}
+
+/**
  * ========================================
  * CLÉ DIGITALE (DIGITAL KEY)
  * ========================================
