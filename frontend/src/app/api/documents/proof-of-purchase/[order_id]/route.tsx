@@ -143,13 +143,13 @@ export async function GET(
       );
     }
 
-    // Calculer total_price pour chaque item
+    // Calculer total_price pour chaque item et convertir centimes → euros
     const itemsWithTotal = orderItems.map(item => ({
       product_name: item.product_name,
       variant_name: item.variant || 'digital',
       quantity: item.quantity,
-      unit_price: item.unit_price,
-      total_price: item.unit_price * item.quantity
+      unit_price: item.unit_price / 100, // Centimes → Euros
+      total_price: (item.unit_price * item.quantity) / 100 // Centimes → Euros
     }));
 
     // 7. ⚠️ COHÉRENCE : Vérifier que sum(items) correspond au total
@@ -166,7 +166,7 @@ export async function GET(
       customerEmail: order.email_client,
       paymentMethod: 'Carte bancaire (Stripe)',
       items: itemsWithTotal,
-      totalAmount: order.total_amount,
+      totalAmount: order.total_amount / 100, // Centimes → Euros
       generatedAt: new Date().toISOString(), // Date de première génération
       templateVersion: '1.0.0', // Versioning du template
     };
