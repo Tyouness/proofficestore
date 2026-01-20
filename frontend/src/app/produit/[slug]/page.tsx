@@ -345,7 +345,7 @@ export default async function ProductPage({ params }: PageProps) {
               <div className="mb-6">
                 <div className="flex items-baseline">
                   <span className="text-4xl font-bold text-gray-900">
-                    {finalPrice.toFixed(2)} €
+                    {product.base_price.toFixed(2)} €
                   </span>
                   <span className="ml-2 text-gray-500">TTC</span>
                 </div>
@@ -659,43 +659,6 @@ export default async function ProductPage({ params }: PageProps) {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Types de livraison */}
-        <div className="mt-8 bg-white rounded-lg shadow-sm p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Comparatif des formats de livraison</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Format</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Délai</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Support physique</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-900">Recommandé pour</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                <tr className={deliveryFormat === 'digital' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">Clé Numérique ⚡</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Instantané</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Non</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Activation rapide, installation via téléchargement</td>
-                </tr>
-                <tr className={deliveryFormat === 'dvd' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">DVD 💿</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">3-5 jours ouvrés</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Oui</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Installation sans connexion Internet, collection physique</td>
-                </tr>
-                <tr className={deliveryFormat === 'usb' ? 'bg-blue-50 border-l-4 border-blue-600' : ''}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">Clé USB 🔌</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">3-5 jours ouvrés</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Oui (Bootable)</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">Installation système, réparation, réinstallation facile</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
 
