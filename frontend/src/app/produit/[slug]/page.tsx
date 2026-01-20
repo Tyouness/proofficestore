@@ -67,15 +67,27 @@ function getBaseSlug(slug: string): string {
 }
 
 async function getProduct(slug: string): Promise<Product | null> {
-  // Extraire le slug de base pour chercher le produit
-  const baseSlug = getBaseSlug(slug);
-  
-  const { data, error } = await supabaseAdmin
+  // D'abord essayer avec le slug complet (nouveau système)
+  let { data, error } = await supabaseAdmin
     .from('products')
     .select('*')
-    .eq('slug', baseSlug)
+    .eq('slug', slug)
     .eq('is_active', true)
     .single();
+
+  // Si pas trouvé, essayer avec le slug de base (compatibilité)
+  if (error || !data) {
+    const baseSlug = getBaseSlug(slug);
+    const result = await supabaseAdmin
+      .from('products')
+      .select('*')
+      .eq('slug', baseSlug)
+      .eq('is_active', true)
+      .single();
+    
+    data = result.data;
+    error = result.error;
+  }
 
   if (error || !data) return null;
   return data as Product;
