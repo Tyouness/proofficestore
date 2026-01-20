@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
+import FormatSelector from '@/components/FormatSelector';
 import { getProductImagePath } from '@/lib/product-images';
 import { generateProductSeo } from '@/lib/product-seo';
 import { generateProductVariantSeo, detectDeliveryFormat } from '@/lib/product-variant-seo';
@@ -167,6 +168,16 @@ export default async function ProductPage({ params }: PageProps) {
   
   // Générer le contenu SEO unique pour ce produit ET ce format
   const seoData = generateProductVariantSeo(product, deliveryFormat);
+
+  // Extraire le slug de base (sans suffixe de format) pour le FormatSelector
+  const getBaseSlug = (): string => {
+    let base = resolvedParams.slug;
+    if (base.endsWith('-digital-key')) base = base.replace('-digital-key', '');
+    else if (base.endsWith('-dvd')) base = base.replace('-dvd', '');
+    else if (base.endsWith('-usb')) base = base.replace('-usb', '');
+    return base;
+  };
+  const baseSlug = getBaseSlug();
 
   // URL canonique du produit
   const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
@@ -374,6 +385,15 @@ export default async function ProductPage({ params }: PageProps) {
                     <dd className="font-medium text-gray-900">Perpétuelle</dd>
                   </div>
                 </dl>
+              </div>
+
+              {/* Format Selector */}
+              <div className="mb-6">
+                <FormatSelector 
+                  currentFormat={deliveryFormat}
+                  baseSlug={baseSlug}
+                  basePrice={product.base_price}
+                />
               </div>
 
               {/* Add to Cart Button */}

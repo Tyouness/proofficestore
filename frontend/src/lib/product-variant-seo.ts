@@ -14,6 +14,21 @@
 
 export type DeliveryFormat = 'digital' | 'dvd' | 'usb';
 
+// Labels pour affichage des éditions
+const EDITION_LABELS: Record<string, string> = {
+  pro: 'Professionnel',
+  professional_plus: 'Professional Plus',
+  home_student: 'Famille et Étudiant',
+  home_business: 'Famille et Petite Entreprise',
+};
+
+// Labels pour affichage des familles
+const FAMILY_LABELS: Record<string, string> = {
+  windows: 'Windows',
+  office: 'Microsoft Office',
+  Office: 'Office',
+};
+
 interface ProductVariantSeo {
   // Metadata SEO
   title: string;
@@ -60,13 +75,23 @@ export function detectDeliveryFormat(slug: string): DeliveryFormat {
 }
 
 /**
+ * Formate le nom du produit pour l'affichage
+ * Remplace les underscores par des espaces dans edition
+ */
+function formatProductName(product: Product): string {
+  const family = FAMILY_LABELS[product.family] || product.family;
+  const edition = EDITION_LABELS[product.edition] || product.edition.replace(/_/g, ' ');
+  return `${family} ${product.version} ${edition}`;
+}
+
+/**
  * ========================================
  * CLÉ DIGITALE (DIGITAL KEY)
  * ========================================
  * Focus : Instantanéité, email, téléchargement ISO, prix bas, écologie
  */
 function generateDigitalKeySeo(product: Product): ProductVariantSeo {
-  const productName = `${product.family} ${product.version} ${product.edition}`;
+  const productName = formatProductName(product);
   
   return {
     // SEO Metadata
@@ -171,7 +196,7 @@ Selon les termes de votre licence Microsoft ${productName}, vous pouvez installe
  * Focus : Possession physique, réinstallation hors ligne, archivage entreprise
  */
 function generateDvdSeo(product: Product): ProductVariantSeo {
-  const productName = `${product.family} ${product.version} ${product.edition}`;
+  const productName = formatProductName(product);
   const dvdPrice = product.base_price + 20; // +20€ vs digital
   
   return {
@@ -285,7 +310,7 @@ Si votre ordinateur moderne ne possède pas de lecteur optique interne, utilisez
  * Focus : Rapidité installation, PC sans lecteur, durabilité support
  */
 function generateUsbKeySeo(product: Product): ProductVariantSeo {
-  const productName = `${product.family} ${product.version} ${product.edition}`;
+  const productName = formatProductName(product);
   const usbPrice = product.base_price + 25; // +25€ vs digital
   
   return {
