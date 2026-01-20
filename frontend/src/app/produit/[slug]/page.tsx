@@ -161,17 +161,10 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
-  // Détecter le format de livraison depuis le slug
-  const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
-  const baseSlug = getBaseSlug(resolvedParams.slug);
-  
-  // Générer le contenu SEO unique pour ce produit ET ce format
-  const seoData = generateProductVariantSeo(product, deliveryFormat);
-  
-  // Calculer le prix ajusté selon le format
-  const finalPrice = calculateVariantPrice(product.base_price, deliveryFormat);
+  // Générer le contenu SEO pour ce produit
+  const seoData = generateProductSeo(product);
 
-  // URL canonique du produit avec le format
+  // URL canonique du produit
   const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
 
   const deliveryInfo = DELIVERY_TYPE_LABELS[product.delivery_type] || {
@@ -356,20 +349,7 @@ export default async function ProductPage({ params }: PageProps) {
                   </span>
                   <span className="ml-2 text-gray-500">TTC</span>
                 </div>
-                {deliveryFormat !== 'digital' && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    Prix de base: {product.base_price.toFixed(2)} € + {(finalPrice - product.base_price).toFixed(2)} € (support physique)
-                  </p>
-                )}
               </div>
-
-              {/* Format Selector */}
-              <FormatSelector
-                currentFormat={deliveryFormat}
-                baseSlug={baseSlug}
-                basePrice={product.base_price}
-                className="mb-6"
-              />
 
               {/* Specifications */}
               <div className="mb-6 border-t border-b border-gray-200 py-4">
@@ -394,9 +374,9 @@ export default async function ProductPage({ params }: PageProps) {
 
               {/* Add to Cart Button */}
               <ProductActions 
-                productId={baseSlug} 
-                productName={`${product.name} (${deliveryInfo.label})`} 
-                basePrice={finalPrice} 
+                productId={product.slug} 
+                productName={product.name} 
+                basePrice={product.base_price} 
               />
 
               {/* Trust Badges */}
