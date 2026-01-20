@@ -211,7 +211,7 @@ export default async function ProductPage({ params }: PageProps) {
       '@type': 'Offer',
       url: productUrl,
       priceCurrency: 'EUR',
-      price: finalPrice.toFixed(2),
+      price: product.base_price.toFixed(2),
       availability: 'https://schema.org/InStock',
       priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       seller: {
