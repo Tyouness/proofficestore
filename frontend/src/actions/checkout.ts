@@ -265,12 +265,8 @@ export async function createStripeCheckoutSession(
     // ──────────────────────────────────────────────
     // 3️⃣ RÉCUPÉRATION DES PRODUITS DEPUIS SUPABASE
     // ──────────────────────────────────────────────
-    // Construire les slugs complets avec le variant (ex: 'windows-11-pro-digital-key')
-    const fullSlugs = items.map(item => {
-      const variantSuffix = item.variant === 'digital' ? 'digital-key' : item.variant;
-      return `${item.productId}-${variantSuffix}`;
-    });
-    const uniqueProductSlugs = [...new Set(fullSlugs)];
+    // Le productId reçu EST DÉJÀ le slug complet (ex: 'office-2019-professional-plus-digital-key')
+    const uniqueProductSlugs = [...new Set(items.map(item => item.productId))];
     
     console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs complets:', uniqueProductSlugs);
 
