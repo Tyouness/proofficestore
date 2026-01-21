@@ -155,6 +155,34 @@ const EDITION_LABELS: Record<string, string> = {
   home_business: 'Famille et Petite Entreprise',
 };
 
+/**
+ * Sanitize HTML pour éviter XSS
+ * Autorise uniquement les balises sûres utilisées dans les descriptions produits
+ */
+function sanitizeHtml(html: string): string {
+  // Allowlist stricte des balises autorisées
+  const allowedTags = ['h1', 'h2', 'h3', 'h4', 'p', 'strong', 'em', 'br', 'ul', 'ol', 'li', 'a'];
+  const allowedAttrs = ['href', 'target', 'rel'];
+  
+  // Supprimer les balises script, style, etc.
+  let cleaned = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Supprimer les event handlers
+    .replace(/on\w+\s*=\s*[^\s>]*/gi, ''); // Supprimer les event handlers sans quotes
+  
+  // Valider que seules les balises autorisées sont présentes
+  const tagRegex = /<\/?([a-z][a-z0-9]*)\b[^>]*>/gi;
+  cleaned = cleaned.replace(tagRegex, (match, tagName) => {
+    if (!allowedTags.includes(tagName.toLowerCase())) {
+      return ''; // Supprimer les balises non autorisées
+    }
+    return match;
+  });
+  
+  return cleaned;
+}
+
 export default async function ProductPage({ params }: PageProps) {
   const resolvedParams = params instanceof Promise ? await params : params;
   const product = await getProduct(resolvedParams.slug);
@@ -432,64 +460,83 @@ export default async function ProductPage({ params }: PageProps) {
 
           {/* Long Description avec collapse */}
           <div className="border-t border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Description détaillée</h2>
-            <div className="prose max-w-none text-gray-600 leading-relaxed space-y-4">
-              {(() => {
-                const paragraphs = seoData.longDescription.split('\n\n');
-                const firstPart = paragraphs.slice(0, 2); // Premier tiers
-                const secondPart = paragraphs.slice(2, 4); // Deuxième tiers
-                const thirdPart = paragraphs.slice(4); // Reste
-                
-                return (
-                  <>
-                    {firstPart.map((paragraph, index) => (
-                      <p key={`first-${index}`} dangerouslySetInnerHTML={{ 
-                        __html: paragraph
-                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                          .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                      }} />
-                    ))}
-                    
-                    <details className="group">
-                      <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
-                        <span>Lire la suite</span>
-                        <svg className="w-5 h-5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </summary>
-                      <div className="space-y-4 mt-4">
-                        {secondPart.map((paragraph, index) => (
-                          <p key={`second-${index}`} dangerouslySetInnerHTML={{ 
-                            __html: paragraph
-                              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                          }} />
-                        ))}
-                        
-                        {thirdPart.length > 0 && (
-                          <details className="group/nested">
+            <div className="prose max-w-none text-gray-600 leading-relaxed">
+              {product.long_description ? (
+                // Utiliser la description de la base de données (HTML sécurisé)
+                <div 
+                  dangerouslySetInnerHTML={{ 
+                    __html: sanitizeHtml(product.long_description) 
+                  }}
+                  className="product-description"
+                  style={{
+                    // Styles pour les balises HTML de la description
+                    // h1, h2, h3 ont déjà les styles via prose
+                  }}
+                />
+              ) : (
+                // Fallback : utiliser la génération dynamique si long_description est vide
+                <>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Description détaillée</h2>
+                  <div className="space-y-4">
+                    {(() => {
+                      const paragraphs = seoData.longDescription.split('\n\n');
+                      const firstPart = paragraphs.slice(0, 2); // Premier tiers
+                      const secondPart = paragraphs.slice(2, 4); // Deuxième tiers
+                      const thirdPart = paragraphs.slice(4); // Reste
+                      
+                      return (
+                        <>
+                          {firstPart.map((paragraph, index) => (
+                            <p key={`first-${index}`} dangerouslySetInnerHTML={{ 
+                              __html: paragraph
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                            }} />
+                          ))}
+                          
+                          <details className="group">
                             <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
-                              <span>Continuer la lecture</span>
-                              <svg className="w-5 h-5 transition-transform group-open/nested:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <span>Lire la suite</span>
+                              <svg className="w-5 h-5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                               </svg>
                             </summary>
                             <div className="space-y-4 mt-4">
-                              {thirdPart.map((paragraph, index) => (
-                                <p key={`third-${index}`} dangerouslySetInnerHTML={{ 
+                              {secondPart.map((paragraph, index) => (
+                                <p key={`second-${index}`} dangerouslySetInnerHTML={{ 
                                   __html: paragraph
                                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                     .replace(/\*(.*?)\*/g, '<em>$1</em>')
                                 }} />
                               ))}
+                              
+                              {thirdPart.length > 0 && (
+                                <details className="group/nested">
+                                  <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
+                                    <span>Continuer la lecture</span>
+                                    <svg className="w-5 h-5 transition-transform group-open/nested:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </summary>
+                                  <div className="space-y-4 mt-4">
+                                    {thirdPart.map((paragraph, index) => (
+                                      <p key={`third-${index}`} dangerouslySetInnerHTML={{ 
+                                        __html: paragraph
+                                          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                          .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                      }} />
+                                    ))}
+                                  </div>
+                                </details>
+                              )}
                             </div>
                           </details>
-                        )}
-                      </div>
-                    </details>
-                  </>
-                );
-              })()}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

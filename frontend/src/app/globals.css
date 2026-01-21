@@ -124,3 +124,56 @@ body {
     background: #2563eb;
   }
 }
+
+/* Styles pour les descriptions produits HTML depuis la base de données */
+.product-description h1 {
+  @apply text-3xl font-bold text-gray-900 mb-6 mt-0;
+}
+
+.product-description h2 {
+  @apply text-2xl font-bold text-gray-900 mb-4 mt-8;
+}
+
+.product-description h3 {
+  @apply text-xl font-semibold text-gray-800 mb-3 mt-6;
+}
+
+.product-description h4 {
+  @apply text-lg font-semibold text-gray-800 mb-2 mt-4;
+}
+
+.product-description p {
+  @apply text-gray-700 leading-relaxed mb-4;
+}
+
+.product-description strong {
+  @apply font-semibold text-gray-900;
+}
+
+.product-description em {
+  @apply italic;
+}
+
+.product-description ul, .product-description ol {
+  @apply ml-6 mb-4 space-y-2;
+}
+
+.product-description ul {
+  @apply list-disc;
+}
+
+.product-description ol {
+  @apply list-decimal;
+}
+
+.product-description li {
+  @apply text-gray-700 leading-relaxed;
+}
+
+.product-description a {
+  @apply text-blue-600 hover:text-blue-700 underline;
+}
+
+.product-description br {
+  @apply block mb-2;
+}
