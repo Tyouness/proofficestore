@@ -462,17 +462,80 @@ export default async function ProductPage({ params }: PageProps) {
           <div className="border-t border-gray-200 p-8">
             <div className="prose max-w-none text-gray-600 leading-relaxed">
               {product.long_description ? (
-                // Utiliser la description de la base de données (HTML sécurisé)
-                <div 
-                  dangerouslySetInnerHTML={{ 
-                    __html: sanitizeHtml(product.long_description) 
-                  }}
-                  className="product-description"
-                  style={{
-                    // Styles pour les balises HTML de la description
-                    // h1, h2, h3 ont déjà les styles via prose
-                  }}
-                />
+                // Utiliser la description de la base de données (HTML sécurisé) avec collapse
+                (() => {
+                  const sanitized = sanitizeHtml(product.long_description);
+                  // Découper le HTML par balises <h2> pour créer les sections
+                  const h2Regex = /<h2[^>]*>.*?<\/h2>/gi;
+                  const sections: string[] = [];
+                  let lastIndex = 0;
+                  let match;
+                  
+                  while ((match = h2Regex.exec(sanitized)) !== null) {
+                    if (lastIndex === 0 && match.index > 0) {
+                      // Ajouter le contenu avant le premier H2 (généralement H1 + intro)
+                      sections.push(sanitized.substring(0, match.index));
+                    }
+                    // Trouver la prochaine balise H2 ou la fin
+                    const nextMatch = h2Regex.exec(sanitized);
+                    const endIndex = nextMatch ? nextMatch.index : sanitized.length;
+                    h2Regex.lastIndex = match.index + match[0].length; // Reset pour chercher la fin de cette section
+                    
+                    sections.push(sanitized.substring(match.index, endIndex));
+                    lastIndex = endIndex;
+                    
+                    if (!nextMatch) break;
+                    h2Regex.lastIndex = match.index + match[0].length; // Continuer la recherche
+                  }
+                  
+                  // Si pas de H2 trouvé, afficher tout le contenu
+                  if (sections.length === 0) {
+                    sections.push(sanitized);
+                  }
+                  
+                  const firstPart = sections.slice(0, 2); // H1 + 1er H2
+                  const secondPart = sections.slice(2, 5); // 2e, 3e, 4e H2
+                  const thirdPart = sections.slice(5); // Reste
+                  
+                  return (
+                    <>
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: firstPart.join('') }}
+                        className="product-description"
+                      />
+                      
+                      {secondPart.length > 0 && (
+                        <details className="group mt-4">
+                          <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
+                            <span>Lire la suite</span>
+                            <svg className="w-5 h-5 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </summary>
+                          <div 
+                            dangerouslySetInnerHTML={{ __html: secondPart.join('') }}
+                            className="product-description mt-4"
+                          />
+                          
+                          {thirdPart.length > 0 && (
+                            <details className="group/nested mt-4">
+                              <summary className="cursor-pointer text-blue-600 font-semibold hover:text-blue-700 list-none flex items-center gap-2 my-4">
+                                <span>Continuer la lecture</span>
+                                <svg className="w-5 h-5 transition-transform group-open/nested:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </summary>
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: thirdPart.join('') }}
+                                className="product-description mt-4"
+                              />
+                            </details>
+                          )}
+                        </details>
+                      )}
+                    </>
+                  );
+                })()
               ) : (
                 // Fallback : utiliser la génération dynamique si long_description est vide
                 <>
@@ -480,9 +543,9 @@ export default async function ProductPage({ params }: PageProps) {
                   <div className="space-y-4">
                     {(() => {
                       const paragraphs = seoData.longDescription.split('\n\n');
-                      const firstPart = paragraphs.slice(0, 2); // Premier tiers
-                      const secondPart = paragraphs.slice(2, 4); // Deuxième tiers
-                      const thirdPart = paragraphs.slice(4); // Reste
+                      const firstPart = paragraphs.slice(0, 2);
+                      const secondPart = paragraphs.slice(2, 4);
+                      const thirdPart = paragraphs.slice(4);
                       
                       return (
                         <>
