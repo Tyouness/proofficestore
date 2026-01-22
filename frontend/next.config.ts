@@ -63,6 +63,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  
+  // ── Redirections SEO ──
+  async redirects() {
+    return [
+      // Redirection 301: anciennes URLs /product vers nouvelles URLs /produit
+      {
+        source: '/product/:slug*',
+        destination: '/produit/:slug*',
+        permanent: true, // 301 redirect
+      },
+    ];
+  },
 };
 
 export default nextConfig;
