@@ -161,7 +161,7 @@ const EDITION_LABELS: Record<string, string> = {
  */
 function sanitizeHtml(html: string): string {
   // Allowlist stricte des balises autorisées
-  const allowedTags = ['h1', 'h2', 'h3', 'h4', 'p', 'strong', 'em', 'br', 'ul', 'ol', 'li', 'a'];
+  const allowedTags = ['h1', 'h2', 'h3', 'h4', 'p', 'strong', 'em', 'br', 'ul', 'ol', 'li', 'a', 'table', 'tr', 'th', 'td', 'thead', 'tbody'];
   const allowedAttrs = ['href', 'target', 'rel'];
   
   // Supprimer les balises script, style, etc.

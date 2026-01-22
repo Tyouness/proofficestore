@@ -177,3 +177,19 @@ body {
 .product-description br {
   @apply block mb-2;
 }
+
+.product-description table {
+  @apply w-full border-collapse mb-6 mt-4;
+}
+
+.product-description th {
+  @apply bg-blue-600 text-white font-semibold px-4 py-3 text-left border border-blue-700;
+}
+
+.product-description td {
+  @apply px-4 py-3 border border-gray-300 text-gray-700;
+}
+
+.product-description tr:nth-child(even) {
+  @apply bg-gray-50;
+}
