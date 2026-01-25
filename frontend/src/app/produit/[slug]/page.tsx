@@ -5,6 +5,7 @@ import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
 import FormatSelector from '@/components/FormatSelector';
 import { getProductImagePath } from '@/lib/product-images';
+import { getProductImageSEO } from '@/lib/image-seo';
 import { generateProductSeo } from '@/lib/product-seo';
 import { generateProductVariantSeo, detectDeliveryFormat } from '@/lib/product-variant-seo';
 import ProductTrustBadges from '@/components/seo/ProductTrustBadges';
@@ -388,14 +389,29 @@ export default async function ProductPage({ params }: PageProps) {
           <div className="grid md:grid-cols-2 gap-8 p-8">
             {/* Image */}
             <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-              <Image
-                src={getProductImagePath(product.slug) || product.image_url || '/images/placeholder-product.jpg'}
-                alt={`${product.name} - Licence Microsoft authentique avec activation immédiate et support français inclus`}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
+              {(() => {
+                const localImage = getProductImagePath(product.slug);
+                const imageSrc = localImage || product.image_url || '/images/placeholder-product.jpg';
+                const imageMeta = getProductImageSEO(product.slug, {
+                  name: product.name,
+                  family: product.family as 'windows' | 'office',
+                  version: product.version,
+                  edition: product.edition,
+                  deliveryType: product.delivery_type as 'digital_key' | 'dvd' | 'usb',
+                }, true); // isHeroImage = true pour priority
+                
+                return (
+                  <Image
+                    src={imageSrc}
+                    alt={imageMeta.alt}
+                    title={imageMeta.title}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority={imageMeta.priority}
+                  />
+                );
+              })()}
             </div>
 
             {/* Product Info */}

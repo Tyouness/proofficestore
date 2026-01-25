@@ -29,14 +29,11 @@ export const metadata: Metadata = {
   authors: [{ name: BUSINESS_INFO.companyName }],
   creator: BUSINESS_INFO.companyName,
   publisher: BUSINESS_INFO.companyName,
+  applicationName: 'AllKeyMasters',
+  manifest: '/manifest.json',
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/icon.jpg', type: 'image/jpeg', sizes: '512x512' },
-    ],
-    apple: [
-      { url: '/apple-touch-icon.jpg', sizes: '180x180', type: 'image/jpeg' },
-    ],
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.jpg',
   },
   openGraph: {
     type: 'website',
@@ -45,15 +42,32 @@ export const metadata: Metadata = {
     siteName: BUSINESS_INFO.companyName,
     title: SEO_CONFIG.defaultTitle,
     description: SEO_CONFIG.defaultDescription,
+    images: [
+      {
+        url: 'https://www.allkeymasters.com/og-default.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'AllKeyMasters – Licences Microsoft officielles Windows et Office',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: SEO_CONFIG.defaultTitle,
     description: SEO_CONFIG.defaultDescription,
+    images: ['https://www.allkeymasters.com/og-default.jpg'],
   },
   robots: {
     index: true,
     follow: true,
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'AllKeyMasters',
+  },
+  other: {
+    'theme-color': '#000000',
   },
 };
 

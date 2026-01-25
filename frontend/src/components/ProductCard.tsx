@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { getProductImagePath } from '@/lib/product-images';
+import { getProductImageSEO } from '@/lib/image-seo';
 
 interface Product {
   id: string;
@@ -47,12 +48,19 @@ export default function ProductCard({ product }: { product: Product }) {
         <div className="relative">
           {(() => {
           const localImage = getProductImagePath(product.slug);
-          const imageAlt = `${product.name} - Licence numérique authentique Microsoft avec livraison instantanée`;
+          const imageMeta = getProductImageSEO(product.slug, {
+            name: product.name,
+            family: product.family as 'windows' | 'office',
+            version: product.version,
+            edition: product.edition,
+            deliveryType: product.delivery_type as 'digital_key' | 'dvd' | 'usb',
+          });
           return localImage ? (
             <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
               <Image 
                 src={localImage}
-                alt={imageAlt}
+                alt={imageMeta.alt}
+                title={imageMeta.title}
                 width={300}
                 height={225}
                 sizes="(max-width: 640px) 85vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
@@ -65,7 +73,8 @@ export default function ProductCard({ product }: { product: Product }) {
             <div className="relative h-48 bg-gradient-to-br from-blue-50 to-gray-100">
               <img 
                 src={product.image_url} 
-                alt={imageAlt}
+                alt={imageMeta.alt}
+                title={imageMeta.title}
                 className="w-full h-full object-contain p-4"
               />
             </div>

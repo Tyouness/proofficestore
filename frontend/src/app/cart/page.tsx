@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
 import { getProductImagePath } from '@/lib/product-images';
+import { getCartImageAlt } from '@/lib/image-seo';
 import Image from 'next/image';
 
 export default function CartPage() {
@@ -120,10 +121,12 @@ export default function CartPage() {
                   {getProductImagePath(item.id) ? (
                     <Image
                       src={getProductImagePath(item.id)}
-                      alt={item.title}
+                      alt={getCartImageAlt(item.title)}
+                      title={`${item.title} – Format ${item.format.toUpperCase()}`}
                       fill
                       className="object-cover"
                       sizes="96px"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
