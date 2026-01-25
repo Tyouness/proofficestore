@@ -10,7 +10,6 @@ interface FormatOption {
   label: string;
   icon: string;
   description: string;
-  priceModifier: number; // +0€, +20€, +25€
   badge?: string;
 }
 
@@ -20,7 +19,6 @@ const FORMAT_OPTIONS: FormatOption[] = [
     label: 'Clé Numérique',
     icon: '⚡',
     description: 'Livraison instantanée par email',
-    priceModifier: 0,
     badge: 'Le moins cher',
   },
   {
@@ -28,29 +26,36 @@ const FORMAT_OPTIONS: FormatOption[] = [
     label: 'DVD',
     icon: '💿',
     description: 'Support physique livré sous 3-5 jours',
-    priceModifier: 20,
   },
   {
     value: 'usb',
     label: 'Clé USB',
     icon: '🔌',
     description: 'Support USB bootable livré sous 3-5 jours',
-    priceModifier: 25,
     badge: '3x plus rapide',
   },
 ];
 
+interface VariantPrice {
+  slug: string;
+  basePrice: number;
+  salePrice: number | null;
+  onSale: boolean;
+}
+
 interface FormatSelectorProps {
   currentFormat: DeliveryFormat;
-  baseSlug: string;
-  basePrice: number;
+  variants: {
+    digital?: VariantPrice;
+    dvd?: VariantPrice;
+    usb?: VariantPrice;
+  };
   className?: string;
 }
 
 export default function FormatSelector({
   currentFormat,
-  baseSlug,
-  basePrice,
+  variants,
   className = '',
 }: FormatSelectorProps) {
   const router = useRouter();
@@ -59,20 +64,11 @@ export default function FormatSelector({
   const handleFormatChange = async (newFormat: DeliveryFormat) => {
     if (newFormat === currentFormat || isChanging) return;
 
+    const targetVariant = variants[newFormat];
+    if (!targetVariant) return; // Variante non disponible
+
     setIsChanging(true);
-
-    // Générer le nouveau slug selon le format
-    let newSlug = baseSlug;
-    if (newFormat === 'digital') {
-      newSlug = `${baseSlug}-digital-key`;
-    } else if (newFormat === 'dvd') {
-      newSlug = `${baseSlug}-dvd`;
-    } else if (newFormat === 'usb') {
-      newSlug = `${baseSlug}-usb`;
-    }
-
-    // Naviguer vers la nouvelle URL
-    router.push(`/produit/${newSlug}`);
+    router.push(`/produit/${targetVariant.slug}`);
   };
 
   return (
@@ -84,7 +80,15 @@ export default function FormatSelector({
       <div className="space-y-3">
         {FORMAT_OPTIONS.map((option) => {
           const isSelected = option.value === currentFormat;
-          const finalPrice = basePrice + option.priceModifier;
+          const variant = variants[option.value];
+          
+          // Ne pas afficher si la variante n'existe pas
+          if (!variant) return null;
+          
+          // Utiliser le prix réel de la variante (sale_price si en promo, sinon base_price)
+          const finalPrice = variant.onSale && variant.salePrice 
+            ? variant.salePrice 
+            : variant.basePrice;
 
           return (
             <button
@@ -126,17 +130,18 @@ export default function FormatSelector({
 
                 {/* Prix */}
                 <div className="text-right ml-4">
-                  <div className={`text-lg font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
-                    {finalPrice.toFixed(2)} €
-                  </div>
-                  {option.priceModifier > 0 && (
-                    <div className="text-xs text-gray-500">
-                      +{option.priceModifier} €
-                    </div>
-                  )}
-                  {option.priceModifier === 0 && (
-                    <div className="text-xs text-green-600 font-medium">
-                      Prix de base
+                  {variant.onSale && variant.salePrice ? (
+                    <>
+                      <div className={`text-lg font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                        {variant.salePrice.toFixed(2)} €
+                      </div>
+                      <div className="text-xs text-gray-500 line-through">
+                        {variant.basePrice.toFixed(2)} €
+                      </div>
+                    </>
+                  ) : (
+                    <div className={`text-lg font-bold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                      {variant.basePrice.toFixed(2)} €
                     </div>
                   )}
                 </div>

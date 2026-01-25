@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import ReviewForm from './ReviewForm';
+import DeliveryTracker from './DeliveryTracker';
 
 export default async function AccountPage() {
   const supabase = await createServerClient();
@@ -22,6 +23,12 @@ export default async function AccountPage() {
       status,
       total_amount,
       user_id,
+      shipping_name,
+      shipping_address,
+      shipping_city,
+      shipping_country,
+      shipping_status,
+      tracking_number,
       order_items (
         product_id,
         product_name,
@@ -274,9 +281,28 @@ export default async function AccountPage() {
                             />
                           </div>
                         ) : (
-                          <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
-                            ⚠️ Licence en cours d'attribution. Veuillez actualiser la page dans quelques instants.
-                          </div>
+                          // Commande physique - Afficher le statut de livraison
+                          order.shipping_name ? (
+                            <DeliveryTracker
+                              trackingNumber={order.tracking_number || ''}
+                              shippingStatus={order.shipping_status || 'pending'}
+                              shippingName={order.shipping_name}
+                              shippingAddress={order.shipping_address || ''}
+                              shippingCity={order.shipping_city || ''}
+                              shippingPostalCode={order.shipping_postal_code || ''}
+                              shippingCountry={order.shipping_country || ''}
+                            />
+                          ) : item.product_id.endsWith('-digital-key') ? (
+                            // Produit digital sans licence encore attribuée
+                            <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
+                              ⚠️ Licence en cours d'attribution. Veuillez actualiser la page dans quelques instants.
+                            </div>
+                          ) : (
+                            // Produit physique sans information de livraison (en cours de traitement)
+                            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-blue-800">
+                              📦 Votre commande est en cours de traitement. Les informations de livraison seront mises à jour très prochainement.
+                            </div>
+                          )
                         )}
                       </div>
                     );

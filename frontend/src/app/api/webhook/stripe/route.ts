@@ -367,6 +367,37 @@ export async function POST(req: NextRequest) {
         // Ex: 'office-2024-professional-plus-digital-key'
         const productId = item.product_id;
         
+        // 🔑 VÉRIFIER si c'est un produit DIGITAL
+        // Seuls les produits DIGITAL-KEY reçoivent des licences
+        const isDigitalProduct = productId.endsWith('-digital-key');
+        
+        // 📦 Décrémenter l'inventaire pour TOUS les produits (digital et physiques)
+        try {
+          const { error: invError } = await supabaseAdmin
+            .rpc('decrement_product_inventory', {
+              product_id: productId,
+              quantity: item.quantity
+            });
+
+          if (invError) {
+            console.error('[WEBHOOK] ⚠️ Erreur décrémentation inventaire:', invError);
+            // Ne pas bloquer le flux même si la décrémentation échoue
+          }
+        } catch (invError) {
+          console.error('[WEBHOOK] ⚠️ Exception décrémentation inventaire:', invError);
+        }
+        
+        // 🔑 N'ASSIGNER DES LICENCES QUE POUR LES PRODUITS DIGITAL
+        if (!isDigitalProduct) {
+          results.push({ 
+            product_id: item.product_id,
+            product_name: item.product_name,
+            status: 'physical_product',
+            message: 'Produit physique - Pas d\'attribution de licence'
+          });
+          continue;
+        }
+        
         // Vérifier si des licences sont déjà attribuées (idempotence)
         const { data: alreadyAssigned } = await supabaseAdmin
           .from('licenses')

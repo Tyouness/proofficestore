@@ -32,6 +32,7 @@ import type {
   CreateCheckoutSessionInput, 
   CreateCheckoutSessionResult 
 } from '@/types/checkout';
+import { shippingAddressSchema, cartHasPhysicalItems } from '@/lib/shipping-validation';
 import crypto from 'crypto';
 
 /**
@@ -107,6 +108,20 @@ function validateCheckoutInput(input: CreateCheckoutSessionInput): string | null
 
     if (!Number.isInteger(item.quantity)) {
       return 'La quantité doit être un nombre entier';
+    }
+  }
+
+  // Validation de l'adresse si produits physiques
+  const hasPhysical = cartHasPhysicalItems(input.items);
+  if (hasPhysical) {
+    if (!input.shippingAddress) {
+      return 'Adresse de livraison requise pour les produits physiques';
+    }
+    
+    const shippingValidation = shippingAddressSchema.safeParse(input.shippingAddress);
+    if (!shippingValidation.success) {
+      const firstError = shippingValidation.error.issues[0];
+      return `Adresse invalide: ${firstError.message}`;
     }
   }
 
@@ -351,7 +366,7 @@ export async function createStripeCheckoutSession(
     // ──────────────────────────────────────────────
     console.log('[CHECKOUT] 💾 Tentative de création de commande dans Supabase...');
     
-    const orderData = {
+    const orderData: Record<string, any> = {
       user_id: user.id,
       email_client: email.toLowerCase().trim(),
       status: 'pending' as const,
@@ -359,6 +374,20 @@ export async function createStripeCheckoutSession(
       stripe_session_id: null,
       cart_hash: cartHash,
     };
+
+    // Ajouter l'adresse de livraison si produits physiques
+    if (input.shippingAddress) {
+      orderData.shipping_name = input.shippingAddress.shipping_name;
+      orderData.shipping_address = input.shippingAddress.shipping_address;
+      orderData.shipping_zip = input.shippingAddress.shipping_zip;
+      orderData.shipping_city = input.shippingAddress.shipping_city;
+      orderData.shipping_country = input.shippingAddress.shipping_country;
+      orderData.shipping_phone_prefix = input.shippingAddress.shipping_phone_prefix;
+      orderData.shipping_phone_number = input.shippingAddress.shipping_phone_number;
+      // shipping_status sera auto-set à 'pending' par le trigger SQL
+      console.log('[CHECKOUT] 📦 Commande physique détectée, adresse ajoutée');
+    }
+
     console.log('[CHECKOUT] 📝 Données commande:', JSON.stringify(orderData, null, 2));
 
     const { data: order, error: orderError } = await supabaseAdmin

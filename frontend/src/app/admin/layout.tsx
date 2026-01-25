@@ -32,6 +32,15 @@ export default async function AdminLayout({
             <NavLink href="/admin/licenses" icon="🔑">
               Licences
             </NavLink>
+            <NavLink href="/admin/inventory" icon="📦">
+              Inventaire
+            </NavLink>
+            <NavLink href="/admin/pricing" icon="💰">
+              Gestion des Prix
+            </NavLink>
+            <NavLink href="/admin/stock-requests" icon="🔔">
+              Demandes de Stock
+            </NavLink>
             <NavLink href="/admin/reviews" icon="⭐">
               Avis Clients
             </NavLink>

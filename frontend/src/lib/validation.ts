@@ -176,6 +176,56 @@ export const searchQuerySchema = z
   .max(200, 'Recherche trop longue')
   .optional();
 
+// ── Stock Request (demande de notification de disponibilité) ──
+export const stockRequestSchema = z.object({
+  productId: z.string().min(1, 'Product ID requis'), // Slug du produit (text), pas UUID
+  email: emailSchema,
+  quantity: quantitySchema,
+  honeypot: z.string().max(0, 'Bot détecté').default(''), // Anti-spam: doit rester vide
+}).strict();
+
+// ── Stock Request Status ──
+export const stockRequestStatusSchema = z.enum(['pending', 'contacted', 'completed', 'cancelled']);
+
+// ── Update Stock Request (admin) ──
+export const updateStockRequestSchema = z.object({
+  requestId: uuidSchema,
+  status: stockRequestStatusSchema.optional(),
+  adminNotes: z.string().max(1000).optional(),
+}).strict();
+
+// ── Pricing & Promotions Validation ──
+export const updateProductPricingSchema = z.object({
+  productId: uuidSchema,
+  basePrice: z.number()
+    .positive('Le prix de base doit être positif')
+    .max(99999, 'Prix de base trop élevé')
+    .multipleOf(0.01, 'Prix invalide (maximum 2 décimales)'),
+  salePrice: z.number()
+    .positive('Le prix réduit doit être positif')
+    .max(99999, 'Prix réduit trop élevé')
+    .multipleOf(0.01, 'Prix invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  onSale: z.boolean(),
+  promoLabel: z.string()
+    .max(50, 'Label promo trop long (max 50 caractères)')
+    .optional()
+    .nullable(),
+}).strict().refine(
+  (data) => {
+    // Si sale_price existe, il doit être inférieur à base_price
+    if (data.salePrice !== null && data.salePrice !== undefined) {
+      return data.salePrice < data.basePrice;
+    }
+    return true;
+  },
+  {
+    message: 'Le prix réduit doit être inférieur au prix de base',
+    path: ['salePrice'],
+  }
+);
+
 // Helper: Parse with fallback
 export function safeParse<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
   const result = schema.safeParse(data);

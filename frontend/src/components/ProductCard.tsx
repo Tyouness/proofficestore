@@ -12,6 +12,9 @@ interface Product {
   delivery_type: string;
   description?: string;
   base_price: number;
+  sale_price?: number | null;
+  on_sale?: boolean;
+  promo_label?: string | null;
   image_url?: string;
 }
 
@@ -29,12 +32,20 @@ const FAMILY_LABELS: Record<string, string> = {
 export default function ProductCard({ product }: { product: Product }) {
   const deliveryLabel = DELIVERY_TYPE_LABELS[product.delivery_type] || product.delivery_type;
   const familyLabel = FAMILY_LABELS[product.family] || product.family;
+  
+  // Calculer le prix final et la réduction
+  const hasPromotion = product.on_sale && product.sale_price && product.sale_price < product.base_price;
+  const finalPrice = hasPromotion ? product.sale_price! : product.base_price;
+  const discountPercentage = hasPromotion 
+    ? Math.round(((product.base_price - product.sale_price!) / product.base_price) * 100)
+    : 0;
 
   return (
     <Link href={`/produit/${product.slug}`} className="group block">
       <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden h-full flex flex-col">
-        {/* Image */}
-        {(() => {
+        {/* Image avec badge promo */}
+        <div className="relative">
+          {(() => {
           const localImage = getProductImagePath(product.slug);
           const imageAlt = `${product.name} - Licence numérique authentique Microsoft avec livraison instantanée`;
           return localImage ? (
@@ -66,6 +77,16 @@ export default function ProductCard({ product }: { product: Product }) {
             </div>
           );
         })()}
+        
+        {/* Badge promotion flottant */}
+        {hasPromotion && product.promo_label && (
+          <div className="absolute top-4 right-4 z-10">
+            <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg font-bold text-sm">
+              {product.promo_label}
+            </div>
+          </div>
+        )}
+        </div>
 
         {/* Content */}
         <div className="p-5 flex flex-col flex-grow">
@@ -99,9 +120,20 @@ export default function ProductCard({ product }: { product: Product }) {
           {/* Prix et CTA */}
           <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
             <div>
-              <div className="text-2xl font-bold text-gray-900">
-                {product.base_price.toFixed(2)} €
-              </div>
+              {hasPromotion ? (
+                <div className="flex flex-col">
+                  <div className="text-2xl font-bold text-green-600">
+                    {finalPrice.toFixed(2)} €
+                  </div>
+                  <div className="text-sm text-gray-500 line-through">
+                    {product.base_price.toFixed(2)} €
+                  </div>
+                </div>
+              ) : (
+                <div className="text-2xl font-bold text-gray-900">
+                  {product.base_price.toFixed(2)} €
+                </div>
+              )}
             </div>
             <button className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
               Voir

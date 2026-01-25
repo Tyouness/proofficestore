@@ -6,6 +6,7 @@
  * ⚠️ RÈGLES STRICTES :
  * - Affichage du panier depuis CartContext
  * - Collecte de l'email utilisateur
+ * - Collecte de l'adresse SI produits physiques
  * - Appel de la Server Action uniquement
  * - AUCUN calcul de prix côté client
  * - AUCUN accès direct à Supabase
@@ -24,6 +25,8 @@ import { useCart } from '@/context/CartContext';
 import { createStripeCheckoutSession } from '@/actions/checkout';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
+import ShippingAddressForm, { type ShippingFormData } from '@/components/ShippingAddressForm';
+import { cartHasPhysicalItems, shippingAddressSchema } from '@/lib/shipping-validation';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -32,6 +35,19 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // État pour l'adresse de livraison (si nécessaire)
+  const hasPhysicalItems = cartHasPhysicalItems(items.map(item => ({ variant: item.format as 'digital' | 'dvd' | 'usb' })));
+  const [shippingData, setShippingData] = useState<ShippingFormData>({
+    shipping_name: '',
+    shipping_address: '',
+    shipping_zip: '',
+    shipping_city: '',
+    shipping_country: 'FR',
+    shipping_phone_prefix: '+33',
+    shipping_phone_number: '',
+  });
+  const [shippingErrors, setShippingErrors] = useState<Partial<Record<keyof ShippingFormData, string>>>({});
 
   // ──────────────────────────────────────────────
   // Détection de l'utilisateur connecté
@@ -81,6 +97,23 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Validation de l'adresse si produits physiques
+    if (hasPhysicalItems) {
+      const validationResult = shippingAddressSchema.safeParse(shippingData);
+      if (!validationResult.success) {
+        // Extraire les erreurs et les afficher
+        const errors: Partial<Record<keyof ShippingFormData, string>> = {};
+        validationResult.error.issues.forEach(issue => {
+          const field = issue.path[0] as keyof ShippingFormData;
+          errors[field] = issue.message;
+        });
+        setShippingErrors(errors);
+        toast.error('Veuillez remplir tous les champs d\'adresse correctement');
+        return;
+      }
+      setShippingErrors({});
+    }
+
     setIsProcessing(true);
 
     try {
@@ -92,6 +125,7 @@ export default function CheckoutPage() {
           quantity: item.quantity,
         })),
         email: email.trim(),
+        shippingAddress: hasPhysicalItems ? shippingData : undefined,
       });
 
       if (!result.success) {
@@ -196,6 +230,15 @@ export default function CheckoutPage() {
                 }
               </p>
             </div>
+
+            {/* Formulaire d'adresse de livraison (conditionnel) */}
+            {hasPhysicalItems && (
+              <ShippingAddressForm
+                value={shippingData}
+                onChange={setShippingData}
+                errors={shippingErrors}
+              />
+            )}
 
             {/* Bouton de paiement */}
             <button

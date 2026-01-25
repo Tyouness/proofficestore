@@ -30,12 +30,17 @@ interface Product {
   version: string;
   edition: string;
   delivery_type: string;
+  delivery_format?: string;
   description: string;
   long_description: string;
   base_price: number;
+  sale_price?: number | null;
+  on_sale?: boolean;
   image_url: string;
   is_featured: boolean;
   is_active: boolean;
+  inventory?: number;
+  group_id?: string | null;
 }
 
 interface PageProps {
@@ -56,6 +61,38 @@ async function getProduct(slug: string): Promise<Product | null> {
 
   if (error || !data) return null;
   return data as Product;
+}
+
+// Récupérer toutes les variantes d'un groupe (pour FormatSelector)
+async function getProductVariants(groupId: string | null | undefined): Promise<{
+  digital?: { slug: string; basePrice: number; salePrice: number | null; onSale: boolean };
+  dvd?: { slug: string; basePrice: number; salePrice: number | null; onSale: boolean };
+  usb?: { slug: string; basePrice: number; salePrice: number | null; onSale: boolean };
+}> {
+  if (!groupId) return {};
+
+  const { data, error } = await supabaseAdmin
+    .from('products')
+    .select('slug, delivery_format, base_price, sale_price, on_sale')
+    .eq('group_id', groupId)
+    .eq('is_active', true);
+
+  if (error || !data) return {};
+
+  const variants: any = {};
+  data.forEach((v: any) => {
+    const format = v.delivery_format?.toLowerCase();
+    if (format === 'digital' || format === 'dvd' || format === 'usb') {
+      variants[format] = {
+        slug: v.slug,
+        basePrice: v.base_price,
+        salePrice: v.sale_price,
+        onSale: v.on_sale || false,
+      };
+    }
+  });
+
+  return variants;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -191,21 +228,14 @@ export default async function ProductPage({ params }: PageProps) {
     notFound();
   }
 
+  // Récupérer les variantes du même groupe (Digital/DVD/USB)
+  const variants = await getProductVariants(product.group_id);
+
   // Détecter le format de livraison depuis le slug pour le SEO
   const deliveryFormat = detectDeliveryFormat(resolvedParams.slug);
   
   // Générer le contenu SEO unique pour ce produit ET ce format
   const seoData = generateProductVariantSeo(product, deliveryFormat);
-
-  // Extraire le slug de base (sans suffixe de format) pour le FormatSelector
-  const getBaseSlug = (): string => {
-    let base = resolvedParams.slug;
-    if (base.endsWith('-digital-key')) base = base.replace('-digital-key', '');
-    else if (base.endsWith('-dvd')) base = base.replace('-dvd', '');
-    else if (base.endsWith('-usb')) base = base.replace('-usb', '');
-    return base;
-  };
-  const baseSlug = getBaseSlug();
 
   // URL canonique du produit
   const productUrl = `https://www.allkeymasters.com/produit/${resolvedParams.slug}`;
@@ -384,14 +414,37 @@ export default async function ProductPage({ params }: PageProps) {
                 {product.description}
               </p>
 
-              {/* Price */}
+              {/* Price avec promotion */}
               <div className="mb-6">
-                <div className="flex items-baseline">
-                  <span className="text-4xl font-bold text-gray-900">
-                    {product.base_price.toFixed(2)} €
-                  </span>
-                  <span className="ml-2 text-gray-500">TTC</span>
-                </div>
+                {((product as any).on_sale && (product as any).sale_price && (product as any).sale_price < product.base_price) ? (
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-4xl font-bold text-green-600">
+                        {((product as any).sale_price).toFixed(2)} €
+                      </span>
+                      {(product as any).promo_label && (
+                        <span className="bg-red-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
+                          {(product as any).promo_label}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xl text-gray-500 line-through">
+                        {product.base_price.toFixed(2)} €
+                      </span>
+                      <span className="text-sm text-green-600 font-medium">
+                        Économisez {(product.base_price - (product as any).sale_price).toFixed(2)} €
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-bold text-gray-900">
+                      {product.base_price.toFixed(2)} €
+                    </span>
+                    <span className="ml-2 text-gray-500">TTC</span>
+                  </div>
+                )}
               </div>
 
               {/* Specifications */}
@@ -419,8 +472,7 @@ export default async function ProductPage({ params }: PageProps) {
               <div className="mb-6">
                 <FormatSelector 
                   currentFormat={deliveryFormat}
-                  baseSlug={baseSlug}
-                  basePrice={product.base_price}
+                  variants={variants}
                 />
               </div>
 
@@ -428,7 +480,12 @@ export default async function ProductPage({ params }: PageProps) {
               <ProductActions 
                 productId={product.slug} 
                 productName={product.name} 
-                basePrice={product.base_price} 
+                basePrice={product.base_price}
+                salePrice={(product as any).sale_price}
+                onSale={(product as any).on_sale}
+                promoLabel={(product as any).promo_label}
+                inventory={(product as any).inventory}
+                currentFormat={deliveryFormat}
               />
 
               {/* Trust Badges */}

@@ -5,6 +5,11 @@ const isProd = process.env.NODE_ENV === 'production';
 const nextConfig: NextConfig = {
   /* config options here */
   
+  // ── Image Optimization ──
+  images: {
+    qualities: [75, 85],
+  },
+  
   // ── Security Headers ──
   async headers() {
     return [
