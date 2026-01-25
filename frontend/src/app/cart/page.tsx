@@ -13,6 +13,8 @@
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
+import { getProductImagePath } from '@/lib/product-images';
+import Image from 'next/image';
 
 export default function CartPage() {
   const router = useRouter();
@@ -113,9 +115,21 @@ export default function CartPage() {
               "
             >
               <div className="flex items-start gap-6">
-                {/* Image placeholder */}
-                <div className="flex-shrink-0 w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center">
-                  <span className="text-3xl">🔑</span>
+                {/* Image produit */}
+                <div className="flex-shrink-0 w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl overflow-hidden relative">
+                  {getProductImagePath(item.id) ? (
+                    <Image
+                      src={getProductImagePath(item.id)}
+                      alt={item.title}
+                      fill
+                      className="object-cover"
+                      sizes="96px"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-3xl">🔑</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Infos produit */}

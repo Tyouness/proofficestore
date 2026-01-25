@@ -29,6 +29,15 @@ export const metadata: Metadata = {
   authors: [{ name: BUSINESS_INFO.companyName }],
   creator: BUSINESS_INFO.companyName,
   publisher: BUSINESS_INFO.companyName,
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.jpg', type: 'image/jpeg', sizes: '512x512' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.jpg', sizes: '180x180', type: 'image/jpeg' },
+    ],
+  },
   openGraph: {
     type: 'website',
     locale: 'fr_FR',

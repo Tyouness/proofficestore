@@ -190,6 +190,18 @@ export const ProofOfPurchaseTemplate: React.FC<{ data: ProofOfPurchaseData }> = 
     });
   };
 
+  // Détecter si la commande contient des produits digitaux, DVD ou USB
+  // Note: variant_name contient 'digital', 'dvd' ou 'usb' en minuscules
+  const hasDigitalProducts = data.items.some(item => 
+    item.variant_name?.toLowerCase() === 'digital'
+  );
+  const hasDVDProducts = data.items.some(item => 
+    item.variant_name?.toLowerCase() === 'dvd'
+  );
+  const hasUSBProducts = data.items.some(item => 
+    item.variant_name?.toLowerCase() === 'usb'
+  );
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -256,17 +268,49 @@ export const ProofOfPurchaseTemplate: React.FC<{ data: ProofOfPurchaseData }> = 
           </View>
         </View>
 
-        {/* Encadré important - Clé de licence */}
-        <View style={styles.importantBox}>
-          <Text style={styles.importantTitle}>
-            ⚠️ Accès à votre clé de licence
-          </Text>
-          <Text style={styles.importantText}>
-            Votre clé de licence est disponible dans votre espace client AllKeyMasters.
-            {'\n'}
-            Connectez-vous sur allkeymasters.com pour accéder à vos licences et les télécharger.
-          </Text>
-        </View>
+        {/* Encadré important - Accès produit */}
+        {hasDigitalProducts && (
+          <View style={styles.importantBox}>
+            <Text style={styles.importantTitle}>
+              ⚠️ Accès à votre clé de licence
+            </Text>
+            <Text style={styles.importantText}>
+              Votre clé de licence est disponible dans votre espace client AllKeyMasters.
+              {'\n'}
+              Connectez-vous sur allkeymasters.com pour accéder à vos licences et les télécharger.
+            </Text>
+          </View>
+        )}
+        
+        {hasDVDProducts && (
+          <View style={styles.importantBox}>
+            <Text style={styles.importantTitle}>
+              {'>> '}Livraison de votre DVD
+            </Text>
+            <Text style={styles.importantText}>
+              Votre DVD sera expédié sous 24h à l'adresse indiquée lors de la commande.
+              {'\n'}
+              Vous recevrez un email avec le numéro de suivi dès l'expédition.
+              {'\n'}
+              Suivez l'état de votre livraison depuis votre espace client sur allkeymasters.com
+            </Text>
+          </View>
+        )}
+        
+        {hasUSBProducts && (
+          <View style={styles.importantBox}>
+            <Text style={styles.importantTitle}>
+              {'>> '}Livraison de votre clé USB
+            </Text>
+            <Text style={styles.importantText}>
+              Votre clé USB sera expédiée sous 24h à l'adresse indiquée lors de la commande.
+              {'\n'}
+              Vous recevrez un email avec le numéro de suivi dès l'expédition.
+              {'\n'}
+              Suivez l'état de votre livraison depuis votre espace client sur allkeymasters.com
+            </Text>
+          </View>
+        )}
 
         {/* Contact support */}
         <View style={styles.section}>
