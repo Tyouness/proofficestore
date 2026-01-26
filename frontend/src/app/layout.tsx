@@ -32,7 +32,11 @@ export const metadata: Metadata = {
   applicationName: 'AllKeyMasters',
   manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      // Ce fichier PNG de 144x144px est optimisé pour Google Search et les navigateurs modernes
+      { url: '/logo-google.png', sizes: '144x144', type: 'image/png' },
+    ],
+    shortcut: '/logo-google.png',
     apple: '/apple-touch-icon.jpg',
   },
   openGraph: {
@@ -78,6 +82,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'AllKeyMasters',
+              url: 'https://www.allkeymasters.com',
+              logo: 'https://www.allkeymasters.com/logo-google.png',
+              description: 'Licences Microsoft officielles Windows et Office - Vente en ligne de clés d\'activation authentiques',
+              contactPoint: {
+                '@type': 'ContactPoint',
+                email: 'support@allkeymasters.com',
+                contactType: 'Customer Service',
+                availableLanguage: ['French', 'English']
+              }
+            })
+          }}
+        />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
         {/* On enveloppe tout le site pour que le panier soit accessible partout */}
         <CartProvider>

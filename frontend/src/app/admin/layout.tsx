@@ -26,6 +26,9 @@ export default async function AdminLayout({
             <NavLink href="/admin/orders" icon="🛒">
               Commandes
             </NavLink>
+            <NavLink href="/admin/users" icon="👥">
+              Utilisateurs
+            </NavLink>
             <NavLink href="/admin/tickets" icon="🎫">
               Support
             </NavLink>
