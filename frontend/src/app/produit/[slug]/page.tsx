@@ -386,7 +386,7 @@ export default async function ProductPage({ params }: PageProps) {
 
         {/* Product Section */}
         <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-          <div className="grid md:grid-cols-2 gap-8 p-8">
+          <div className="grid md:grid-cols-2 gap-8 p-4 sm:p-8">
             {/* Image */}
             <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
               {(() => {
@@ -415,7 +415,7 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
 
             {/* Product Info */}
-            <div className="flex flex-col">
+            <div className="flex flex-col max-w-lg mx-auto md:mx-0 md:max-w-none">
               <div className="mb-2">
                 <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
                   {FAMILY_LABELS[product.family] || product.family}
@@ -525,7 +525,7 @@ export default async function ProductPage({ params }: PageProps) {
                   <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                  <span className="font-medium">Support client</span> dédié 7j/7
+                  <span className="font-medium">Support client dédié 7j/7</span>
                 </div>
               </div>
             </div>

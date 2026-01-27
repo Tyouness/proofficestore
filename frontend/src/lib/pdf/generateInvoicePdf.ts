@@ -3,6 +3,7 @@
  * Utilise le template ProofOfPurchaseTemplate
  */
 
+import React from 'react';
 import ReactPDF from '@react-pdf/renderer';
 import { ProofOfPurchaseTemplate } from './ProofOfPurchaseTemplate';
 
@@ -28,9 +29,10 @@ interface GenerateInvoicePdfArgs {
  */
 export async function generateInvoicePdf(data: GenerateInvoicePdfArgs): Promise<Buffer> {
   try {
-    const pdfStream = await ReactPDF.renderToStream(
-      ProofOfPurchaseTemplate({ data })
-    );
+    // Créer le template avec React.createElement pour le typing correct
+    const template = React.createElement(ProofOfPurchaseTemplate, { data });
+    
+    const pdfStream = await ReactPDF.renderToStream(template as any);
 
     // Convertir le stream en Buffer
     const chunks: Uint8Array[] = [];
