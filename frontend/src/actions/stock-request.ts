@@ -18,6 +18,7 @@ import { createServerClient } from '@/lib/supabase-server';
 import { stockRequestSchema, updateStockRequestSchema } from '@/lib/validation';
 import { headers } from 'next/headers';
 import { z } from 'zod';
+import { sendStockRequestUserEmail, sendStockRequestAdminEmail } from '@/lib/email';
 
 // ── Types ──
 type StockRequestResult = {
@@ -168,10 +169,29 @@ export async function createStockRequest(
       };
     }
 
-    // 9. Succès
+    // 9. Envoyer les emails (client + admin)
+    try {
+      await sendStockRequestUserEmail(
+        validatedData.email,
+        product.name,
+        validatedData.quantity
+      );
+      await sendStockRequestAdminEmail(
+        validatedData.email,
+        product.name,
+        product.id,
+        validatedData.quantity,
+        newRequest.id
+      );
+    } catch (emailError) {
+      console.error('Erreur envoi emails stock request:', emailError);
+      // Ne pas bloquer si l'email échoue
+    }
+
+    // 10. Succès
     return {
       success: true,
-      message: `Demande reçue ! Un conseiller vérifie le stock pour ${validatedData.quantity} licence${validatedData.quantity > 1 ? 's' : ''} et vous contactera par email ou via notre espace client d'ici 24h.`,
+      message: `Demande reçue ! Un conseiller vérifie le stock pour ${validatedData.quantity} licence${validatedData.quantity > 1 ? 's' : ''} et vous contactera par email dans les 24h-48h.`,
       requestId: newRequest.id,
     };
 

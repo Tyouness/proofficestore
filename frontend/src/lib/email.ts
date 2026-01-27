@@ -45,7 +45,11 @@ type EmailKind =
   | 'shipping_tracking'
   | 'welcome'
   | 'admin_sale'
-  | 'admin_signup';
+  | 'admin_signup'
+  | 'support_ticket_user'
+  | 'support_ticket_admin'
+  | 'stock_request_user'
+  | 'stock_request_admin';
 
 interface SendEmailArgs {
   dedupeKey: string;
@@ -54,6 +58,10 @@ interface SendEmailArgs {
   subject: string;
   html: string;
   payload?: any; // Pour debug/audit
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+  }>;
 }
 
 /**
@@ -65,7 +73,7 @@ interface SendEmailArgs {
  * 3. UPDATE email_logs (status + provider_id ou error)
  */
 async function sendEmail(args: SendEmailArgs): Promise<EmailResult> {
-  const { dedupeKey, kind, to, subject, html, payload } = args;
+  const { dedupeKey, kind, to, subject, html, payload, attachments } = args;
 
   // 🔧 CORRECTIF PROBLÈME 4: Log de début
   console.log(`[EMAIL] -> sending kind=${kind} to=${to} dedupe=${dedupeKey}`);
@@ -110,14 +118,21 @@ async function sendEmail(args: SendEmailArgs): Promise<EmailResult> {
         setTimeout(() => reject(new Error('timeout')), 8000)
       );
 
+      const emailPayload: any = {
+        from: FROM_EMAIL,
+        replyTo: REPLY_TO_EMAIL,
+        to,
+        subject,
+        html,
+      };
+
+      // Ajouter les pièces jointes si présentes
+      if (attachments && attachments.length > 0) {
+        emailPayload.attachments = attachments;
+      }
+
       const { data: resendData, error: resendError } = await Promise.race([
-        resend.emails.send({
-          from: FROM_EMAIL,
-          replyTo: REPLY_TO_EMAIL,
-          to,
-          subject,
-          html,
-        }),
+        resend.emails.send(emailPayload),
         timeoutPromise,
       ]) as any;
 
@@ -292,7 +307,8 @@ export async function sendLicenseDeliveryEmail(
   orderId: string,
   stripeEventId: string,
   licenses: Array<{ productName: string; keyCode: string; productId: string }>,
-  locale: string = 'fr'
+  locale: string = 'fr',
+  invoicePdfBuffer?: Buffer
 ): Promise<EmailResult> {
   const isFrench = locale.toLowerCase().startsWith('fr');
   const dedupeKey = `stripe:${stripeEventId}:license_delivery`;
@@ -343,8 +359,14 @@ export async function sendLicenseDeliveryEmail(
                 
                 <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #92400e;">
-                    <strong>⚠️ Important :</strong> Conservez précieusement ces clés. Vous pouvez également les retrouver à tout moment dans votre 
-                    <a href="https://www.allkeymasters.com/account" style="color: #3b82f6;">espace client</a>.
+                    <strong>⚠️ Important :</strong> Conservez précieusement ces clés. Elles sont également accessibles à tout moment dans votre 
+                    <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">espace client</a> sur le site.
+                  </p>
+                </div>
+                
+                <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 14px; color: #5b21b6;">
+                    <strong>📄 Votre facture</strong> est jointe à cet email et également disponible dans votre espace client.
                   </p>
                 </div>
                 
@@ -390,8 +412,14 @@ export async function sendLicenseDeliveryEmail(
                 
                 <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #92400e;">
-                    <strong>⚠️ Important:</strong> Keep these keys safe. You can also find them anytime in your 
-                    <a href="https://www.allkeymasters.com/account" style="color: #3b82f6;">account area</a>.
+                    <strong>⚠️ Important:</strong> Keep these keys safe. They are also accessible anytime in your 
+                    <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">account area</a> on the website.
+                  </p>
+                </div>
+                
+                <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 14px; color: #5b21b6;">
+                    <strong>📄 Your invoice</strong> is attached to this email and also available in your account area.
                   </p>
                 </div>
                 
@@ -420,6 +448,9 @@ export async function sendLicenseDeliveryEmail(
           </html>
         `,
     payload: { orderId, stripeEventId, licenses, locale },
+    attachments: invoicePdfBuffer
+      ? [{ filename: `Facture-${orderId}.pdf`, content: invoicePdfBuffer }]
+      : undefined,
   });
 }
 
@@ -796,3 +827,253 @@ export async function sendEmailConfirmationInstructionsEmail(
     payload: { userKey },
   });
 }
+
+// ──────────────────────────────────────────────────────────────
+// SUPPORT TICKET EMAILS
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 8️⃣ Email confirmation ticket support (client)
+ */
+export async function sendSupportTicketUserEmail(
+  customerEmail: string,
+  ticketId: string,
+  subject: string,
+  category: 'question' | 'claim'
+): Promise<EmailResult> {
+  const dedupeKey = `ticket:${ticketId}:user_confirmation`;
+  const categoryLabel = category === 'question' ? 'Question' : 'Réclamation';
+
+  return sendEmail({
+    dedupeKey,
+    kind: 'support_ticket_user',
+    to: customerEmail,
+    subject: `✅ Votre ticket support a été créé - #${ticketId.slice(0, 8)}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">✅ Ticket créé</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px;">Bonjour,</p>
+            
+            <p style="font-size: 16px;">Nous avons bien reçu votre demande de support. Notre équipe va la traiter dans les plus brefs délais.</p>
+            
+            <div style="background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1f2937;">📋 Détails de votre ticket</h3>
+              <p style="margin: 10px 0;"><strong>Numéro :</strong> #${ticketId.slice(0, 8)}</p>
+              <p style="margin: 10px 0;"><strong>Catégorie :</strong> ${categoryLabel}</p>
+              <p style="margin: 10px 0;"><strong>Sujet :</strong> ${subject}</p>
+            </div>
+            
+            <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #1e40af;">
+                <strong>⏱️ Délai de réponse :</strong> Notre équipe vous répondra dans les <strong>24h à 48h</strong>.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://www.allkeymasters.com/account/support/${ticketId}" style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                Suivre mon ticket
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #6b7280;">
+              Merci de votre confiance,<br/>
+              <strong>L'équipe Support AllKeyMasters</strong>
+            </p>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              Email de confirmation automatique - Merci de ne pas répondre directement à cet email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { ticketId, subject, category },
+  });
+}
+
+/**
+ * 9️⃣ Email notification nouveau ticket (admin)
+ */
+export async function sendSupportTicketAdminEmail(
+  ticketId: string,
+  customerEmail: string,
+  subject: string,
+  message: string,
+  category: 'question' | 'claim'
+): Promise<EmailResult> {
+  const dedupeKey = `ticket:${ticketId}:admin_notification`;
+  const categoryLabel = category === 'question' ? 'Question' : 'Réclamation';
+
+  return sendEmail({
+    dedupeKey,
+    kind: 'support_ticket_admin',
+    to: ADMIN_EMAIL,
+    subject: `🎫 Nouveau ticket support - ${categoryLabel} - #${ticketId.slice(0, 8)}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 25px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">🎫 Nouveau ticket support</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 25px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+            <div style="background: white; border-radius: 6px; padding: 20px; border: 1px solid #e5e7eb;">
+              <h2 style="margin-top: 0; color: #1f2937; font-size: 18px;">📋 Détails du ticket</h2>
+              <p style="margin: 8px 0;"><strong>Numéro :</strong> #${ticketId.slice(0, 8)}</p>
+              <p style="margin: 8px 0;"><strong>Catégorie :</strong> <span style="background: #dbeafe; padding: 3px 8px; border-radius: 4px; font-weight: bold;">${categoryLabel}</span></p>
+              <p style="margin: 8px 0;"><strong>Client :</strong> <a href="mailto:${customerEmail}" style="color: #3b82f6;">${customerEmail}</a></p>
+              <p style="margin: 8px 0;"><strong>Sujet :</strong> ${subject}</p>
+            </div>
+            
+            <div style="background: #f3f4f6; border-radius: 6px; padding: 20px; margin-top: 15px;">
+              <h3 style="margin-top: 0; color: #1f2937; font-size: 16px;">💬 Message initial</h3>
+              <p style="margin: 0; white-space: pre-wrap; font-size: 14px;">${message}</p>
+            </div>
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 15px; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                <strong>⏱️ SLA :</strong> Réponse attendue dans les <strong>24h-48h</strong>
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <a href="https://www.allkeymasters.com/admin/tickets/${ticketId}" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Répondre au ticket
+              </a>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { ticketId, customerEmail, subject, message, category },
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// STOCK REQUEST EMAILS (Demandes de disponibilité)
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 🔟 Email confirmation demande de disponibilité (client)
+ */
+export async function sendStockRequestUserEmail(
+  customerEmail: string,
+  productName: string,
+  quantity: number
+): Promise<EmailResult> {
+  const dedupeKey = `stock:${customerEmail}:${productName}:${Date.now()}`;
+
+  return sendEmail({
+    dedupeKey,
+    kind: 'stock_request_user',
+    to: customerEmail,
+    subject: '✅ Demande de disponibilité enregistrée - AllKeyMasters',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">✅ Demande reçue</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px;">Bonjour,</p>
+            
+            <p style="font-size: 16px;">Nous avons bien reçu votre demande de disponibilité pour :</p>
+            
+            <div style="background: white; border: 2px solid #10b981; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1f2937;">📦 Produit demandé</h3>
+              <p style="margin: 10px 0;"><strong>Produit :</strong> ${productName}</p>
+              <p style="margin: 10px 0;"><strong>Quantité :</strong> ${quantity}</p>
+            </div>
+            
+            <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #1e40af;">
+                <strong>⏱️ Délai de réponse :</strong> Un conseiller vérifie la disponibilité et vous recontacte par email dans les <strong>24h à 48h</strong>.
+              </p>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #6b7280;">
+              Merci de votre intérêt,<br/>
+              <strong>L'équipe AllKeyMasters</strong>
+            </p>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              Besoin d'aide immédiate ? Contactez-nous à ${REPLY_TO_EMAIL}
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { productName, quantity },
+  });
+}
+
+/**
+ * 1️⃣1️⃣ Email notification demande de disponibilité (admin)
+ */
+export async function sendStockRequestAdminEmail(
+  customerEmail: string,
+  productName: string,
+  productId: string,
+  quantity: number,
+  requestId: string
+): Promise<EmailResult> {
+  const dedupeKey = `stock:admin:${requestId}`;
+
+  return sendEmail({
+    dedupeKey,
+    kind: 'stock_request_admin',
+    to: ADMIN_EMAIL,
+    subject: `📦 Demande de disponibilité - ${productName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><met charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 25px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">📦 Demande de disponibilité</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 25px; border-radius: 0 0 8px 8px; border: 1px solid #e5e7eb; border-top: none;">
+            <div style="background: white; border-radius: 6px; padding: 20px; border: 1px solid #e5e7eb;">
+              <h2 style="margin-top: 0; color: #1f2937; font-size: 18px;">📋 Détails de la demande</h2>
+              <p style="margin: 8px 0;"><strong>Client :</strong> <a href="mailto:${customerEmail}" style="color: #3b82f6;">${customerEmail}</a></p>
+              <p style="margin: 8px 0;"><strong>Produit :</strong> ${productName}</p>
+              <p style="margin: 8px 0;"><strong>ID Produit :</strong> <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 12px;">${productId}</code></p>
+              <p style="margin: 8px 0;"><strong>Quantité demandée :</strong> ${quantity}</p>
+            </div>
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin-top: 15px; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                <strong>⚠️ Action requise :</strong> Vérifier le stock et contacter le client dans les <strong>24h-48h</strong>
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <a href="https://www.allkeymasters.com/admin/stock-requests" style="display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Gérer les demandes
+              </a>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { customerEmail, productName, productId, quantity, requestId },
+  });
+}
+

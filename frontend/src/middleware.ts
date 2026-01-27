@@ -62,6 +62,7 @@ export async function middleware(request: NextRequest) {
  * - Les images (_next/image)
  * - Les favicons (favicon.ico)
  * - Les API routes non-authentifiées
+ * - Les fichiers publics (images, fonts, etc.)
  */
 export const config = {
   matcher: [
@@ -70,7 +71,8 @@ export const config = {
      * - API routes (déjà gérées individuellement)
      * - Fichiers statiques
      * - Images Next.js
+     * - Tous les fichiers du dossier public (images, fonts, manifests, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|json|xml|txt|pdf)$).*)',
   ],
 };

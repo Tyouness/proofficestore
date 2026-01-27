@@ -1,6 +1,6 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from '@/lib/admin-auth';
 import AdminTicketClient from './AdminTicketClient';
 
 interface AdminTicketPageProps {
@@ -9,44 +9,11 @@ interface AdminTicketPageProps {
 
 export default async function AdminTicketPage({ params }: AdminTicketPageProps) {
   const { id } = await params;
-  const cookieStore = await cookies();
-  const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
+  
+  // Le layout a déjà vérifié l'auth admin, on récupère juste l'user_id
+  const userId = await requireAdmin();
 
-  if (!authCookie) {
-    redirect('/login');
-  }
-
-  let session;
-  try {
-    session = JSON.parse(authCookie.value);
-  } catch {
-    redirect('/login');
-  }
-
-  if (!session?.access_token) {
-    redirect('/login');
-  }
-
-  // Client avec token utilisateur pour vérifier l'auth
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      },
-    }
-  );
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-  if (!user || userError) {
-    redirect('/login');
-  }
-
-  // Vérifier que l'utilisateur est admin via service_role (inviolable)
+  // Client admin pour les opérations (READ-ONLY)
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -57,16 +24,6 @@ export default async function AdminTicketPage({ params }: AdminTicketPageProps) 
       },
     }
   );
-
-  const { data: userRole, error: roleError } = await supabaseAdmin
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', user.id)
-    .single();
-
-  if (roleError || !userRole || userRole.role !== 'admin') {
-    redirect('/');
-  }
 
   // Récupérer le ticket avec service_role
   const { data: ticket, error: ticketError } = await supabaseAdmin
@@ -148,7 +105,7 @@ export default async function AdminTicketPage({ params }: AdminTicketPageProps) 
       {/* Chat & Actions */}
       <AdminTicketClient
         ticketId={id}
-        adminId={user.id}
+        adminId={userId}
         initialMessages={messages || []}
         initialTicketMessage={ticket.message || null}
         isClosed={ticket.status === 'closed'}

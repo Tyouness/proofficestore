@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import { stripHtml } from '@/lib/sanitize';
+import { sendSupportTicketUserEmail, sendSupportTicketAdminEmail } from '@/lib/email';
 
 interface Order {
   id: string;
@@ -96,7 +97,22 @@ export default function NewTicketClient({ orders, userId }: NewTicketClientProps
         throw new Error('Échec de l\'envoi du message');
       }
 
-      // 3. Rediriger vers le ticket créé
+      // 3. Récupérer l'email du user
+      const { data: { user } } = await supabase.auth.getUser();
+      const customerEmail = user?.email || '';
+
+      // 4. Envoyer les emails de confirmation (client + admin)
+      if (customerEmail) {
+        try {
+          await sendSupportTicketUserEmail(customerEmail, ticket.id, subject, category);
+          await sendSupportTicketAdminEmail(ticket.id, customerEmail, subject, message, category);
+        } catch (emailError) {
+          console.error('Erreur envoi emails support:', emailError);
+          // Ne pas bloquer la création du ticket si l'email échoue
+        }
+      }
+
+      // 5. Rediriger vers le ticket créé
       router.push(`/account/support/${ticket.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');

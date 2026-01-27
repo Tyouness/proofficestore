@@ -31,6 +31,7 @@ import {
   sendLicenseDeliveryEmail,
   sendAdminNewSaleEmail,
 } from '@/lib/email';
+import { generateInvoicePdf } from '@/lib/pdf/generateInvoicePdf';
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
@@ -424,8 +425,33 @@ export async function POST(req: NextRequest) {
           productId: l.product_id,
         }));
 
+        // Générer le PDF de facture
+        console.log('[WEBHOOK] 📄 Génération PDF facture');
+        let invoicePdfBuffer: Buffer | undefined;
+        try {
+          const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+          invoicePdfBuffer = await generateInvoicePdf({
+            orderNumber: order.id,
+            orderDate: order.created_at,
+            customerEmail: customerEmail,
+            paymentMethod: 'Carte bancaire (Stripe)',
+            items: (items ?? []).map((item: any) => ({
+              product_name: item.product_name,
+              variant_name: item.variant || null,
+              quantity: item.quantity,
+              unit_price: item.total_price / item.quantity,
+              total_price: item.total_price,
+            })),
+            totalAmount,
+          });
+          console.log('[WEBHOOK] ✅ PDF facture généré');
+        } catch (pdfError) {
+          console.error('[WEBHOOK] ⚠️ Erreur génération PDF (continuons sans):', pdfError);
+          invoicePdfBuffer = undefined;
+        }
+
         console.log('[WEBHOOK] 📧 Envoi email licences à:', customerEmail);
-        await sendLicenseDeliveryEmail(customerEmail, order.id, event.id, licensesForEmail, locale);
+        await sendLicenseDeliveryEmail(customerEmail, order.id, event.id, licensesForEmail, locale, invoicePdfBuffer);
         console.log('[WEBHOOK] ✅ Email licences envoyé');
       } else {
         console.log('[WEBHOOK] ⚠️ Aucune licence active à envoyer');

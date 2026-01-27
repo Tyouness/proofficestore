@@ -11,23 +11,12 @@ export default async function ProfilePage() {
     redirect('/login?redirect=/account/profile');
   }
 
-  // Charger le profil
-  const { data: profile, error: profileError } = await supabase
+  // Charger le profil (READ-ONLY, pas d'upsert ici)
+  const { data: profile } = await supabase
     .from('profiles')
     .select('full_name')
     .eq('id', user.id)
     .maybeSingle();
-
-  // Si le profil n'existe pas, le créer
-  if (!profile && !profileError) {
-    await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        full_name: '',
-        updated_at: new Date().toISOString(),
-      });
-  }
 
   return (
     <div className="space-y-6">
