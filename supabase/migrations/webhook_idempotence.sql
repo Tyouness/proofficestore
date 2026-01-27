@@ -9,51 +9,52 @@ CREATE TABLE IF NOT EXISTS stripe_webhook_events (
 );
 
 -- Index pour recherche rapide
-CREATE INDEX idx_webhook_events_event_id ON stripe_webhook_events(event_id);
-CREATE INDEX idx_webhook_events_order_id ON stripe_webhook_events(order_id);
+-- Note: event_id a déjà un index unique via contrainte UNIQUE (pas besoin d'index supplémentaire)
+CREATE INDEX IF NOT EXISTS idx_webhook_events_order_id ON stripe_webhook_events(order_id);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_type ON stripe_webhook_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_webhook_events_created ON stripe_webhook_events(created_at DESC);
 
--- RPC pour attribution atomique de licences
--- Retourne les clés de licence attribuées
-CREATE OR REPLACE FUNCTION assign_licenses_atomic(
-  p_order_id UUID,
-  p_variant_id UUID,
-  p_quantity INT
-)
-RETURNS TABLE(license_key TEXT) AS $$
-DECLARE
-  v_assigned INT := 0;
+-- Indexes performance licenses (FOR UPDATE SKIP LOCKED optimization)
+CREATE INDEX IF NOT EXISTS idx_licenses_product_id ON licenses(product_id);
+CREATE INDEX IF NOT EXISTS idx_licenses_available ON licenses(product_id, is_used, revoked, order_id) 
+  WHERE is_used = FALSE AND revoked = FALSE AND order_id IS NULL;
+CREATE INDEX IF NOT EXISTS idx_licenses_order_id ON licenses(order_id) WHERE order_id IS NOT NULL;
+
+-- UNIQUE constraint sur key_code (idempotence licences)
+DO $$ 
 BEGIN
-  -- Sélectionner et verrouiller les licences disponibles
-  -- FOR UPDATE SKIP LOCKED évite les deadlocks
-  RETURN QUERY
-  WITH selected_licenses AS (
-    SELECT l.id, l.license_key
-    FROM licenses l
-    WHERE l.variant_id = p_variant_id
-      AND l.is_used = FALSE
-      AND l.order_id IS NULL
-    ORDER BY l.created_at ASC
-    LIMIT p_quantity
-    FOR UPDATE SKIP LOCKED -- Atomique, évite concurrence
-  ),
-  updated_licenses AS (
-    UPDATE licenses
-    SET is_used = TRUE,
-        order_id = p_order_id,
-        assigned_at = NOW()
-    FROM selected_licenses
-    WHERE licenses.id = selected_licenses.id
-    RETURNING licenses.license_key
-  )
-  SELECT updated_licenses.license_key
-  FROM updated_licenses;
-  
-  -- Vérifier qu'on a bien assigné le bon nombre
-  GET DIAGNOSTICS v_assigned = ROW_COUNT;
-  IF v_assigned < p_quantity THEN
-    RAISE EXCEPTION 'Stock insuffisant: % licences demandees, % disponibles', p_quantity, v_assigned;
-  END IF;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+  ALTER TABLE licenses ADD CONSTRAINT licenses_key_code_unique UNIQUE (key_code);
+EXCEPTION
+  WHEN duplicate_table THEN NULL; -- Ignore si déjà existe
+  WHEN others THEN NULL;
+END $$;
 
-COMMENT ON FUNCTION assign_licenses_atomic IS 'Attribution atomique de licences avec verrouillage FOR UPDATE SKIP LOCKED';
+-- Contraintes NOT NULL
+DO $$ 
+BEGIN
+  ALTER TABLE licenses ALTER COLUMN is_used SET DEFAULT FALSE;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+DO $$ 
+BEGIN
+  ALTER TABLE licenses ALTER COLUMN is_used SET NOT NULL;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+DO $$ 
+BEGIN
+  ALTER TABLE licenses ALTER COLUMN revoked SET DEFAULT FALSE;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+DO $$ 
+BEGIN
+  ALTER TABLE licenses ALTER COLUMN revoked SET NOT NULL;
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+-- Commentaires
+COMMENT ON TABLE stripe_webhook_events IS 'Idempotence atomique Stripe via event_id UNIQUE';
+COMMENT ON COLUMN stripe_webhook_events.event_id IS 'Stripe event.id - clé unique pour déduplication';
+COMMENT ON INDEX idx_licenses_available IS 'Index partiel pour assign_licenses_by_product (FOR UPDATE SKIP LOCKED)';

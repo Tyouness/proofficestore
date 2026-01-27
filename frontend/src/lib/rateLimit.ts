@@ -1,6 +1,14 @@
 /**
  * Rate Limiting - Upstash Redis
- * Fail-mode configuré par type de route (closed/open)
+ * 
+ * Fail modes par type de route :
+ * - 'closed' : Si Redis down → bloquer (sécurité maximale pour auth/write/admin)
+ * - 'open'   : Si Redis down → laisser passer (disponibilité pour read/webhook)
+ * 
+ * ⚠️ WEBHOOK FAIL MODE = 'open' :
+ * Protection principale = idempotence DB (stripe_webhook_events.event_id UNIQUE)
+ * Si Redis down et on bloque → Stripe retry infini → pire que laisser passer
+ * La signature Stripe + barrière DB garantissent la sécurité même si rate limit bypass
  */
 
 import { Redis } from '@upstash/redis';
@@ -11,7 +19,7 @@ export const RATE_LIMITS = {
   auth: { requests: 5, window: '1 m', failMode: 'closed' as const },
   write: { requests: 30, window: '1 m', failMode: 'closed' as const },
   read: { requests: 120, window: '1 m', failMode: 'open' as const },
-  webhook: { requests: 1000, window: '1 m', failMode: 'open' as const },
+  webhook: { requests: 600, window: '1 m', failMode: 'open' as const }, // Stripe webhook limit
   admin: { requests: 60, window: '1 m', failMode: 'closed' as const },
 } as const;
 
@@ -150,6 +158,30 @@ export function getUserIdentifier(userId: string): string {
   return `user:${userId}`;
 }
 
+/**
+ * ⚠️ RESET RATE LIMIT NON SUPPORTÉ
+ * 
+ * Cette fonction est une no-op pour éviter les crashes si appelée par erreur.
+ * La bibliothèque @upstash/ratelimit ne fournit pas d'API publique pour reset.
+ * Le format interne des clés (sliding window) utilise des structures Redis complexes
+ * (hashes, sorted sets) qui changent entre versions.
+ * 
+ * Alternative fiable : attendre l'expiration naturelle de la fenêtre (1 minute max).
+ * Pour déblocage admin urgent : utiliser directement l'UI Upstash Redis.
+ * 
+ * @param identifier - L'identifier à reset (ignoré)
+ * @param config - Le type de rate limit (utilisé pour logging seulement)
+ * @returns Promise<void> - Ne fait rien, log un warning en dev
+ */
 export async function resetRateLimit(identifier: string, config: RateLimitConfig): Promise<void> {
-  console.warn('[RATE_LIMIT] resetRateLimit() non fonctionnel');
+  if (env.NODE_ENV !== 'production') {
+    console.warn(
+      `[RATE_LIMIT] resetRateLimit() appelé mais NON SUPPORTÉ.\n` +
+      `  Config: ${config}\n` +
+      `  Identifier: ${identifier}\n` +
+      `  → La lib @upstash/ratelimit n'expose pas d'API reset.\n` +
+      `  → Attendez ${RATE_LIMITS[config].window} (expiration naturelle) ou utilisez l'UI Upstash Redis.`
+    );
+  }
+  // No-op en production : pas de throw pour éviter crash si appelé par erreur
 }

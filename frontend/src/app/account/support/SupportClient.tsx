@@ -101,7 +101,7 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
 
       if (insertError) throw insertError;
 
-      setSuccess('Votre ticket a été créé avec succès. Nous vous répondrons par email.');
+      setSuccess('Votre ticket a été créé avec succès. Nous vous répondrons via votre espace client.');
       setMessage('');
       
       // Recharger les tickets

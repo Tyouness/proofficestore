@@ -171,7 +171,7 @@ export async function createStockRequest(
     // 9. Succès
     return {
       success: true,
-      message: `Demande reçue ! Un conseiller vérifie le stock pour ${validatedData.quantity} licence${validatedData.quantity > 1 ? 's' : ''} et vous répond par mail d'ici 1h.`,
+      message: `Demande reçue ! Un conseiller vérifie le stock pour ${validatedData.quantity} licence${validatedData.quantity > 1 ? 's' : ''} et vous contactera par email ou via notre espace client d'ici 24h.`,
       requestId: newRequest.id,
     };
 

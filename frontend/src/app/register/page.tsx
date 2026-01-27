@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { evaluatePassword, isPasswordValid } from '@/lib/passwordStrength';
 
@@ -15,6 +14,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   // Évaluation de la force du mot de passe
   const passwordStrength = evaluatePassword(password);
@@ -38,38 +38,30 @@ export default function RegisterPage() {
     }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/account`,
-        },
+      // ✅ SAFE: Appel API signup server-side (ANON_KEY, pas service_role)
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (error) {
-        setError(error.message);
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        setError(result.error || 'Une erreur est survenue lors de la création du compte');
         setLoading(false);
         return;
       }
 
-      if (data.user) {
-        // Vérifier si confirmation email est requise
-        if (data.user.identities && data.user.identities.length === 0) {
-          setError('Cet email est déjà utilisé');
-          setLoading(false);
-          return;
-        }
+      // Succès: compte créé + emails envoyés (avec idempotence DB)
+      setSuccess(true);
+      setNeedsConfirmation(result.needsEmailConfirmation || false);
 
-        setSuccess(true);
-        
-        // Si pas de confirmation email requise, rediriger directement
-        if (data.session) {
-          setTimeout(() => {
-            router.push('/account');
-            router.refresh();
-          }, 1500);
-        }
-      }
+      // Rediriger vers login après 2s
+      setTimeout(() => {
+        router.push('/login');
+        router.refresh();
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue');
       setLoading(false);
@@ -83,16 +75,18 @@ export default function RegisterPage() {
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
             <div className="text-6xl mb-4">✅</div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Compte créé avec succès !
+              {needsConfirmation ? 'Inscription réussie !' : 'Compte créé avec succès !'}
             </h2>
             <p className="text-gray-600 mb-6">
-              Vérifiez votre boîte email pour confirmer votre adresse, puis connectez-vous.
+              {needsConfirmation
+                ? 'Vérifiez votre boîte email pour confirmer votre compte, puis connectez-vous.'
+                : 'Votre compte est activé. Vous pouvez maintenant vous connecter.'}
             </p>
             <Link
               href="/login"
               className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
             >
-              Aller à la connexion
+              Se connecter
             </Link>
           </div>
         </div>

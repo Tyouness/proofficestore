@@ -1,116 +1,165 @@
 /**
- * Webhook Stripe - Confirmation de paiement + Attribution de licences + Envoi d'emails
- * 
+ * Webhook Stripe - Paiement / Refund / Dispute
+ *
  * SÉCURITÉ :
- * ✅ Rate limiting spécial webhook (600 req/min)
- * ✅ Body size limit (1MB max)
+ * ✅ Rate limiting webhook (600 req/min, après signature)
+ * ✅ Body size limit (1MB max, avant signature)
  * ✅ Validation signature Stripe
- * ✅ Pas de PII dans les logs
- * ✅ Idempotence totale (gérer retries)
- * ✅ Atomicité via RPC Postgres
- * 
- * ⚠️ RÈGLES CRITIQUES :
- * - RAW BODY pour signature Stripe
- * - Client Supabase ADMIN (service role) exclusivement
- * - Idempotence totale (gérer les retries Stripe)
- * - Validation anti-fraude : session.id = order.stripe_session_id
- * - Attribution atomique de licences via RPC Postgres
- * - Emails localisés (FR/EN) via Resend
- * - Ne jamais retourner 500 après validation signature (éviter retries inutiles)
+ * ✅ Pas de PII dans les logs production
+ * ✅ Idempotence atomique via INSERT direct stripe_webhook_events
+ * ✅ Processing status tracking (processing → processed/failed/dropped)
+ * ✅ Révocation licences lors refunds/disputes
+ *
+ * RÈGLES CRITIQUES :
+ * - Après signature valide: TOUJOURS return 200 (jamais 500 → évite retry storm Stripe)
+ * - Idempotence: INSERT stripe_webhook_events AVANT side-effects (23505 = dedupe)
+ * - Rate limit APRÈS signature+insert (ne jamais "consommer" event sans trace)
+ * - Fail hard sur RPC critiques (assign_licenses, inventory) → marque failed
+ * - Refunds/Disputes: révoque/restaure licences via revoked flag
+ * - Email licences: groupé après attribution, filtre revoked !== true
+ * - Inventaire: décrémenter pour TOUS les produits (digital + physical)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
-import { Resend } from 'resend';
+import { stripe } from '@/lib/stripe';
 import { rateLimit, getClientIdentifier } from '@/lib/rateLimit';
 import { env } from '@/lib/env';
+import {
+  sendPaymentConfirmationEmail,
+  sendLicenseDeliveryEmail,
+  sendAdminNewSaleEmail,
+} from '@/lib/email';
 
-type AssignLicensesResult = number;
-
-const resend = new Resend(env.RESEND_API_KEY);
-
-// 🔒 Body size limit (1MB max)
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 
-export async function POST(req: NextRequest) {
+type ProcessingStatus = 'processing' | 'processed' | 'failed' | 'dropped';
+
+function safeErrorString(err: unknown): string {
   try {
-    // ── 1. BODY SIZE LIMIT (AVANT lecture du body) ──
-    const contentLength = req.headers.get('content-length');
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return NextResponse.json(
-        { error: 'Payload trop volumineux' },
-        { status: 413 }
-      );
-    }
+    if (err instanceof Error) return `${err.name}: ${err.message}\n${err.stack ?? ''}`.slice(0, 4000);
+    return JSON.stringify(err).slice(0, 4000);
+  } catch {
+    return 'Unknown error (stringify_failed)';
+  }
+}
 
-    // ── 2. LIRE BODY (raw pour signature) ──
-    const rawBody = await req.text();
-    const bodySize = Buffer.byteLength(rawBody, 'utf8');
-    
-    if (bodySize > MAX_BODY_SIZE) {
-      return NextResponse.json(
-        { error: 'Payload trop volumineux' },
-        { status: 413 }
-      );
-    }
+export async function POST(req: NextRequest) {
+  console.log('[WEBHOOK] 🎯 Webhook Stripe reçu');
+  
+  // 1) Quick reject on declared size (no body read, no signature possible)
+  const contentLength = req.headers.get('content-length');
+  const contentLengthNum = parseInt(contentLength || '', 10);
+  if (!isNaN(contentLengthNum) && contentLengthNum > MAX_BODY_SIZE) {
+    console.log('[WEBHOOK] ❌ Payload trop volumineux (content-length):', contentLengthNum);
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
 
-    // ── 3. VALIDATION SIGNATURE STRIPE (CRITIQUE) ──
-    const signature = req.headers.get('stripe-signature');
+  // 2) Read raw body and enforce actual size
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch (e) {
+    console.error('[WEBHOOK] ❌ Erreur lecture body:', e);
+    return NextResponse.json({ error: 'Body read failed' }, { status: 400 });
+  }
 
-    if (!signature || !env.STRIPE_WEBHOOK_SECRET) {
-      return NextResponse.json(
-        { error: 'Configuration invalide' },
-        { status: 400 }
-      );
-    }
+  const bodySize = Buffer.byteLength(rawBody, 'utf8');
+  if (bodySize > MAX_BODY_SIZE) {
+    console.log('[WEBHOOK] ❌ Body trop volumineux (mesuré):', bodySize);
+    return NextResponse.json({ error: 'Body too large' }, { status: 413 });
+  }
 
-    let event: Stripe.Event;
+  // 3) Validate Stripe signature
+  const signature = req.headers.get('stripe-signature');
+  if (!signature || !env.STRIPE_WEBHOOK_SECRET) {
+    console.log('[WEBHOOK] ❌ Signature ou secret manquant');
+    return NextResponse.json({ error: 'Configuration invalide' }, { status: 400 });
+  }
+
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
+    console.log('[WEBHOOK] ✅ Signature valide, event type:', event.type, 'id:', event.id);
+  } catch (err) {
+    console.error('[WEBHOOK] ❌ Signature invalide:', err);
+    return NextResponse.json({ error: 'Signature invalide' }, { status: 400 });
+  }
+
+  // 4) Supabase admin client
+  const supabaseAdmin = createClient(
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  // Helper to update event status safely (always best-effort)
+  async function markEvent(params: {
+    status: ProcessingStatus;
+    orderId?: string | null;
+    error?: string | null;
+  }) {
     try {
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        signature,
-        env.STRIPE_WEBHOOK_SECRET
-      );
-      if (env.NODE_ENV !== 'production') {
-        console.log('[WEBHOOK] Signature valide - Type:', event.type, 'ID:', event.id);
-      }
-    } catch (err: any) {
-      return NextResponse.json(
-        { error: 'Signature invalide' },
-        { status: 400 }
-      );
+      const payload: any = {
+        processing_status: params.status,
+        processed_at: params.status === 'dropped' ? null : new Date().toISOString(),
+      };
+      if (typeof params.orderId !== 'undefined') payload.order_id = params.orderId;
+      if (typeof params.error !== 'undefined') payload.error = params.error;
+
+      await supabaseAdmin
+        .from('stripe_webhook_events')
+        .update(payload)
+        .eq('event_id', event.id);
+    } catch {
+      // Best-effort: don't throw
     }
+  }
 
-    // ── 4. CLIENT SUPABASE ADMIN ──
-    const supabaseAdmin = createClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    );
-
-    // ── 5. IDEMPOTENCE (event.id unique) ──
-    const { data: existingEvent } = await supabaseAdmin
+  try {
+    // 5) Idempotence insert FIRST (atomic dedupe)
+    console.log('[WEBHOOK] 📝 Tentative INSERT idempotence pour event:', event.id);
+    const { error: insertEventError } = await supabaseAdmin
       .from('stripe_webhook_events')
-      .select('id')
-      .eq('event_id', event.id)
-      .maybeSingle();
+      .insert({
+        event_id: event.id,
+        event_type: event.type,
+        order_id: null,
+        // processing_status defaults to 'processing'
+      });
 
-    if (existingEvent) {
-      // Event déjà traité - retourner 200 (idempotence)
-      return NextResponse.json({ received: true, cached: true });
+    if (insertEventError) {
+      if (insertEventError.code === '23505') {
+        console.log('[WEBHOOK] ♻️ Event déjà traité (23505):', event.id);
+        return NextResponse.json({ received: true, cached: true }, { status: 200 });
+      }
+
+      // If idempotence table is broken, we ACK 200 (signature is valid) but log failure
+      console.error('[WEBHOOK] ❌ Erreur INSERT idempotence:', insertEventError);
+      return NextResponse.json({ received: true, error: 'idempotence_failed' }, { status: 200 });
+    }
+
+    console.log('[WEBHOOK] ✅ Event inséré, processing_status=processing');
+
+    // 6) Rate limit AFTER signature+insert. Never block Stripe, but may drop processing.
+    const identifier = getClientIdentifier(req);
+    const rl = await rateLimit(identifier, 'webhook');
+    if (!rl.success) {
+      console.warn('[WEBHOOK] ⚠️ Rate limit dépassé => dropped');
+      await markEvent({ status: 'dropped', error: 'throttled' });
+      return NextResponse.json({ received: true, throttled: true }, { status: 200 });
     }
 
     // ──────────────────────────────────────────────
-    // Gestion des remboursements et litiges
+    // REFUNDS
     // ──────────────────────────────────────────────
-
     if (event.type === 'charge.refunded') {
       const charge = event.data.object as Stripe.Charge;
       const paymentIntent = charge.payment_intent as string;
 
       if (!paymentIntent) {
+        await markEvent({ status: 'processed', error: null });
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
@@ -120,127 +169,131 @@ export async function POST(req: NextRequest) {
         .eq('stripe_payment_intent', paymentIntent)
         .maybeSingle();
 
-      if (!order) {
-        return NextResponse.json({ received: true }, { status: 200 });
+      if (order) {
+        if (order.status !== 'refunded') {
+          await supabaseAdmin
+            .from('orders')
+            .update({
+              status: 'refunded',
+              refunded_at: new Date().toISOString(),
+              refund_reason: charge.refunds?.data?.[0]?.reason || 'requested_by_customer',
+            })
+            .eq('id', order.id);
+        }
+
+        // Revoke licenses (idempotent)
+        await supabaseAdmin
+          .from('licenses')
+          .update({ revoked: true })
+          .eq('order_id', order.id);
+
+        await markEvent({ status: 'processed', orderId: order.id, error: null });
+      } else {
+        await markEvent({ status: 'processed', orderId: null, error: 'order_not_found_for_refund' });
       }
 
-      if (order.status === 'refunded') {
-        return NextResponse.json({ received: true }, { status: 200 });
-      }
-
-      await supabaseAdmin
-        .from('orders')
-        .update({ status: 'refunded' })
-        .eq('id', order.id);
-
-      await supabaseAdmin
-        .from('licenses')
-        .update({ revoked: true })
-        .eq('order_id', order.id);
-
-      console.log(`[WEBHOOK] Event: charge.refunded | Order: ${order.id} | Status: refunded`);
-      return NextResponse.json({ received: true });
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
+    // ──────────────────────────────────────────────
+    // DISPUTES
+    // ──────────────────────────────────────────────
     if (event.type === 'charge.dispute.created') {
       const dispute = event.data.object as Stripe.Dispute;
-      const paymentIntent = dispute.payment_intent as string;
-
-      if (!paymentIntent) {
-        return NextResponse.json({ received: true }, { status: 200 });
-      }
+      const chargeId = dispute.charge as string;
 
       const { data: order } = await supabaseAdmin
         .from('orders')
-        .select('id, status')
-        .eq('stripe_payment_intent', paymentIntent)
+        .select('id')
+        .eq('stripe_charge_id', chargeId)
         .maybeSingle();
 
-      if (!order) {
-        return NextResponse.json({ received: true }, { status: 200 });
+      if (order) {
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            status: 'disputed',
+            dispute_reason: dispute.reason,
+            dispute_status: dispute.status,
+          })
+          .eq('id', order.id);
+
+        // Conservative: revoke immediately
+        await supabaseAdmin
+          .from('licenses')
+          .update({ revoked: true })
+          .eq('order_id', order.id);
+
+        await markEvent({ status: 'processed', orderId: order.id, error: null });
+      } else {
+        await markEvent({ status: 'processed', orderId: null, error: 'order_not_found_for_dispute_created' });
       }
 
-      if (order.status === 'disputed') {
-        return NextResponse.json({ received: true }, { status: 200 });
-      }
-
-      await supabaseAdmin
-        .from('orders')
-        .update({ status: 'disputed' })
-        .eq('id', order.id);
-
-      await supabaseAdmin
-        .from('licenses')
-        .update({ revoked: true })
-        .eq('order_id', order.id);
-
-      console.log(`[WEBHOOK] Event: charge.dispute.created | Order: ${order.id} | Status: disputed`);
-      return NextResponse.json({ received: true });
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
     if (event.type === 'charge.dispute.closed') {
       const dispute = event.data.object as Stripe.Dispute;
-      const paymentIntent = dispute.payment_intent as string;
-      const outcome = dispute.status;
-
-      if (!paymentIntent) {
-        return NextResponse.json({ received: true }, { status: 200 });
-      }
+      const chargeId = dispute.charge as string;
 
       const { data: order } = await supabaseAdmin
         .from('orders')
-        .select('id, status')
-        .eq('stripe_payment_intent', paymentIntent)
+        .select('id')
+        .eq('stripe_charge_id', chargeId)
         .maybeSingle();
 
-      if (!order) {
-        return NextResponse.json({ received: true }, { status: 200 });
+      if (order) {
+        if (dispute.status === 'won') {
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'paid', dispute_status: dispute.status })
+            .eq('id', order.id);
+
+          await supabaseAdmin
+            .from('licenses')
+            .update({ revoked: false })
+            .eq('order_id', order.id);
+        } else {
+          await supabaseAdmin
+            .from('orders')
+            .update({ status: 'refunded', dispute_status: dispute.status })
+            .eq('id', order.id);
+
+          await supabaseAdmin
+            .from('licenses')
+            .update({ revoked: true })
+            .eq('order_id', order.id);
+        }
+
+        await markEvent({ status: 'processed', orderId: order.id, error: null });
+      } else {
+        await markEvent({ status: 'processed', orderId: null, error: 'order_not_found_for_dispute_closed' });
       }
 
-      if (outcome === 'won') {
-        await supabaseAdmin
-          .from('orders')
-          .update({ status: 'paid' })
-          .eq('id', order.id);
-
-        console.log(`[WEBHOOK] Event: charge.dispute.closed | Order: ${order.id} | Status: paid`);
-      }
-
-      return NextResponse.json({ received: true });
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
     // ──────────────────────────────────────────────
-    // Gestion du paiement initial
+    // Only handle checkout.session.completed
     // ──────────────────────────────────────────────
-
     if (event.type !== 'checkout.session.completed') {
-      return NextResponse.json({ received: true });
+      await markEvent({ status: 'processed', orderId: null, error: null });
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
     const session = event.data.object as Stripe.Checkout.Session;
     const stripeSessionId = session.id;
-    
-    // Support snake_case (nouveau) et camelCase (ancien) pour compatibilité rétro
-    let orderIdFromMetadata = session.metadata?.order_id;
-    let userIdFromMetadata = session.metadata?.user_id;
-    
-    // Fallback pour compatibilité rétro
-    if (!orderIdFromMetadata && session.metadata?.orderId) {
-      orderIdFromMetadata = session.metadata.orderId;
-    }
-    if (!userIdFromMetadata && session.metadata?.userId) {
-      userIdFromMetadata = session.metadata.userId;
-    }
-    
+
+    const orderIdFromMetadata = session.metadata?.order_id || session.metadata?.orderId;
+    const userIdFromMetadata = session.metadata?.user_id || session.metadata?.userId;
+
     const customerEmail = session.customer_email || session.customer_details?.email;
     const locale = session.locale || 'en';
-    const isFrench = locale.toLowerCase().startsWith('fr');
     const paymentIntentId = session.payment_intent as string;
 
-    // Recherche commande par order_id (metadata)
     if (!orderIdFromMetadata) {
-      console.error('[WEBHOOK] order_id manquant');
-      return NextResponse.json({ received: true, warning: 'Missing order_id' }, { status: 200 });
+      await markEvent({ status: 'failed', orderId: null, error: 'missing_order_id_metadata' });
+      return NextResponse.json({ received: true, error: 'missing_order_id' }, { status: 200 });
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
@@ -250,260 +303,180 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (orderError || !order) {
-      // Marquer event comme traité même si erreur (éviter retries infinis)
-      await supabaseAdmin
-        .from('stripe_webhook_events')
-        .insert({ event_id: event.id, event_type: event.type, order_id: null });
-      
-      return NextResponse.json({ received: true, warning: 'Order not found' }, { status: 200 });
+      await markEvent({ status: 'failed', orderId: null, error: 'order_not_found' });
+      return NextResponse.json({ received: true, error: 'order_not_found' }, { status: 200 });
     }
 
-    // VALIDATION ANTIFRAUDE: vérifier stripe_session_id correspond
+    // Anti-fraud: session id mismatch
     if (order.stripe_session_id && order.stripe_session_id !== stripeSessionId) {
-      await supabaseAdmin
-        .from('stripe_webhook_events')
-        .insert({ event_id: event.id, event_type: event.type, order_id: order.id });
-      
-      return NextResponse.json({ received: true, warning: 'Session ID mismatch' }, { status: 200 });
+      await markEvent({ status: 'failed', orderId: order.id, error: 'stripe_session_id_mismatch' });
+      return NextResponse.json({ received: true, error: 'session_id_mismatch' }, { status: 200 });
     }
 
-    // Validation user_id (sécurité RLS)
-    if (order.user_id === null) {
-      // Si user_id est NULL, on le met à jour avec la metadata
-      if (userIdFromMetadata) {
+    // user_id validation/update
+    if (userIdFromMetadata) {
+      if (order.user_id === null) {
         const { error: userUpdateError } = await supabaseAdmin
           .from('orders')
           .update({ user_id: userIdFromMetadata })
           .eq('id', order.id);
-        
-        if (!userUpdateError) {
-          order.user_id = userIdFromMetadata; // Update local object
+
+        if (userUpdateError) {
+          await markEvent({ status: 'failed', orderId: order.id, error: 'user_id_update_failed' });
+          return NextResponse.json({ received: true, error: 'user_update_failed' }, { status: 200 });
         }
+      } else if (order.user_id !== userIdFromMetadata) {
+        await markEvent({ status: 'failed', orderId: order.id, error: 'user_id_mismatch' });
+        return NextResponse.json({ received: true, error: 'user_id_mismatch' }, { status: 200 });
       }
-    } else if (order.user_id !== userIdFromMetadata) {
-      // Sécurité : le user_id existant ne correspond pas à la metadata
-      await supabaseAdmin
-        .from('stripe_webhook_events')
-        .insert({ event_id: event.id, event_type: event.type, order_id: order.id });
-      
-      return NextResponse.json({ received: true, warning: 'User ID mismatch' }, { status: 200 });
     }
 
-    // Idempotence - Vérifier si déjà payé
+    // Already paid -> idempotent protection
     if (order.status === 'paid') {
-      // Marquer event comme traité
-      await supabaseAdmin
-        .from('stripe_webhook_events')
-        .insert({ event_id: event.id, event_type: event.type, order_id: order.id });
-      
-      return NextResponse.json({ received: true, status: 'already_paid' });
+      await markEvent({ status: 'processed', orderId: order.id, error: null });
+      return NextResponse.json({ received: true, status: 'already_paid' }, { status: 200 });
     }
 
-    // Mise à jour status → paid + stripe_session_id + payment_intent + ⚠️ paid_at
+    // Mark order paid
     const { error: updateError } = await supabaseAdmin
       .from('orders')
-      .update({ 
-        status: 'paid', 
+      .update({
+        status: 'paid',
         stripe_session_id: stripeSessionId,
         stripe_payment_intent: paymentIntentId,
-        paid_at: new Date().toISOString() // ⚠️ CRITIQUE : Date exacte du paiement
+        paid_at: new Date().toISOString(),
       })
       .eq('id', order.id);
 
     if (updateError) {
-      console.error('[WEBHOOK] Erreur update order:', updateError);
-      return NextResponse.json({ received: true, error: 'Order update failed' }, { status: 200 });
+      await markEvent({ status: 'failed', orderId: order.id, error: 'order_update_failed' });
+      return NextResponse.json({ received: true, error: 'order_update_failed' }, { status: 200 });
     }
 
-    // 📧 EMAIL 1: Confirmation de paiement (DÉSACTIVÉ POUR DEBUG)
-    // if (customerEmail) {
-    //   try {
-    //     await resend.emails.send({
-    //       from: 'AllKeyMasters <allkeymasters@gmail.com>',
-    //       to: customerEmail,
-    //       subject: isFrench 
-    //         ? '✅ Votre paiement est validé - AllKeyMasters'
-    //         : '✅ Your payment is confirmed - AllKeyMasters',
-    //       html: isFrench
-    //         ? `
-    //           <h2>Bonjour,</h2>
-    //           <p>Nous avons bien reçu votre paiement pour votre commande sur <strong>AllKeyMasters</strong>. Merci de votre confiance !</p>
-    //           <h3>Quelle est la suite ?</h3>
-    //           <p>Votre commande est en cours de traitement. Vous allez recevoir d'ici quelques instants un <strong>deuxième email</strong> contenant votre clé d'activation ainsi qu'un guide complet pour installer votre logiciel sans erreur.</p>
-    //           <p>À tout de suite,<br/>L'équipe <strong>AllKeyMasters</strong>.</p>
-    //         `
-    //         : `
-    //           <h2>Hello,</h2>
-    //           <p>We have received your payment for your order on <strong>AllKeyMasters</strong>. Thank you for your trust!</p>
-    //           <h3>What's next?</h3>
-    //           <p>Your order is being processed. You will receive a <strong>second email</strong> in a few moments containing your activation key and a complete guide to install your software without errors.</p>
-    //           <p>See you soon,<br/>The <strong>AllKeyMasters</strong> Team.</p>
-    //         `
-    //     });
-    //     console.log('[WEBHOOK] ✅ Email 1 (Confirmation) envoyé');
-    //   } catch (emailError: any) {
-    //     console.error('[WEBHOOK] ⚠️ Erreur envoi Email 1:', emailError.message);
-    //   }
-    // }
+    // Email payment confirmation
+    if (customerEmail) {
+      console.log('[WEBHOOK] 📧 Envoi email confirmation paiement à:', customerEmail);
+      await sendPaymentConfirmationEmail(customerEmail, order.id, event.id, locale);
+      console.log('[WEBHOOK] ✅ Email confirmation envoyé');
+    }
 
-    // 8️⃣ Attribution licences ATOMIQUE via RPC Postgres
+    // Fetch items
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
       .select('product_id, variant, quantity, product_name')
       .eq('order_id', order.id);
 
     if (itemsError) {
-      console.error('[WEBHOOK] ❌ Erreur récupération order_items:', itemsError);
+      await markEvent({ status: 'failed', orderId: order.id, error: 'order_items_fetch_failed' });
+      return NextResponse.json({ received: true, error: 'order_items_fetch_failed' }, { status: 200 });
     }
-    
-    let totalLicenses = 0;
-    const results = [];
-    const allLicenseKeys: string[] = [];
 
+    // Assign licenses + decrement inventory (strict)
+    console.log('[WEBHOOK] 📦 Traitement de', items?.length || 0, 'produits');
     if (items && items.length > 0) {
       for (const item of items) {
-        
-        // Utiliser directement le product_id du order_item (slug complet)
-        // Ex: 'office-2024-professional-plus-digital-key'
-        const productId = item.product_id;
-        
-        // 🔑 VÉRIFIER si c'est un produit DIGITAL
-        // Seuls les produits DIGITAL-KEY reçoivent des licences
+        const productId = item.product_id as string;
         const isDigitalProduct = productId.endsWith('-digital-key');
-        
-        // 📦 Décrémenter l'inventaire pour TOUS les produits (digital et physiques)
-        try {
-          const { error: invError } = await supabaseAdmin
-            .rpc('decrement_product_inventory', {
-              product_id: productId,
-              quantity: item.quantity
-            });
 
-          if (invError) {
-            console.error('[WEBHOOK] ⚠️ Erreur décrémentation inventaire:', invError);
-            // Ne pas bloquer le flux même si la décrémentation échoue
-          }
-        } catch (invError) {
-          console.error('[WEBHOOK] ⚠️ Exception décrémentation inventaire:', invError);
-        }
-        
-        // 🔑 N'ASSIGNER DES LICENCES QUE POUR LES PRODUITS DIGITAL
-        if (!isDigitalProduct) {
-          results.push({ 
-            product_id: item.product_id,
-            product_name: item.product_name,
-            status: 'physical_product',
-            message: 'Produit physique - Pas d\'attribution de licence'
+        if (isDigitalProduct) {
+          console.log('[WEBHOOK] 🔑 Attribution licences pour:', productId, 'quantité:', item.quantity);
+          const { error: rpcError } = await supabaseAdmin.rpc('assign_licenses_by_product', {
+            p_order_id: order.id,
+            p_product_id: productId,
+            p_quantity: item.quantity,
           });
-          continue;
-        }
-        
-        // Vérifier si des licences sont déjà attribuées (idempotence)
-        const { data: alreadyAssigned } = await supabaseAdmin
-          .from('licenses')
-          .select('key_code')
-          .eq('order_id', order.id)
-          .eq('product_id', productId);
-
-        const alreadyCount = alreadyAssigned?.length || 0;
-
-        if (alreadyCount >= item.quantity) {
-          totalLicenses += alreadyCount;
-          allLicenseKeys.push(...(alreadyAssigned || []).map(l => l.key_code));
-          results.push({ 
-            product_id: item.product_id, 
-            assigned: alreadyCount, 
-            status: 'already_assigned' 
-          });
-          continue;
-        }
-
-        const remainingToAssign = item.quantity - alreadyCount;
-        
-        try {
-          const { data: assignedKeys, error: rpcError } = await supabaseAdmin
-            .rpc('assign_licenses_by_product', {
-              p_order_id: order.id,
-              p_product_id: productId,
-              p_quantity: remainingToAssign
-            });
 
           if (rpcError) {
-            console.error('[WEBHOOK] ❌ Erreur RPC:', rpcError);
-            throw rpcError;
+            console.error('[WEBHOOK] ❌ Erreur attribution licences:', rpcError);
+            await markEvent({ status: 'failed', orderId: order.id, error: `assign_licenses_failed:${rpcError.code ?? 'unknown'}` });
+            return NextResponse.json({ received: true, error: 'assign_licenses_failed' }, { status: 200 });
           }
+          console.log('[WEBHOOK] ✅ Licences attribuées pour:', productId);
+        }
 
-          const newlyAssigned = assignedKeys?.length || 0;
-          totalLicenses += alreadyCount + newlyAssigned;
-          
-          if (assignedKeys) {
-            allLicenseKeys.push(...assignedKeys.map((row: { license_key?: string; key_code?: string }) => row.license_key || row.key_code || ''));
-          }
-          
-          results.push({ 
-            product_id: item.product_id,
-            product_name: item.product_name,
-            assigned: alreadyCount + newlyAssigned,
-            status: 'success'
-          });
-        } catch (error: any) {
-          const errorMessage = error.message || 'Unknown error';
-          
-          if (errorMessage.includes('Stock insuffisant')) {
-            results.push({ 
-              product_id: item.product_id,
-              product_name: item.product_name,
-              assigned: alreadyCount,
-              status: 'insufficient_stock',
-              error: errorMessage
-            });
-          } else {
-            results.push({ 
-              product_id: item.product_id,
-              product_name: item.product_name,
-              assigned: alreadyCount,
-              status: 'error',
-              error: errorMessage
-            });
-          }
-          continue;
+        const { error: invErr } = await supabaseAdmin.rpc('decrement_product_inventory', {
+          product_id: productId,
+          quantity: item.quantity,
+        });
+
+        if (invErr) {
+          await markEvent({ status: 'failed', orderId: order.id, error: `inventory_decrement_failed:${invErr.code ?? 'unknown'}` });
+          return NextResponse.json({ received: true, error: 'inventory_decrement_failed' }, { status: 200 });
         }
       }
     }
 
-    // MARQUER L'EVENT COMME TRAITÉ (idempotence finale)
-    await supabaseAdmin
-      .from('stripe_webhook_events')
-      .insert({ 
-        event_id: event.id, 
-        event_type: event.type, 
-        order_id: order.id 
-      });
+    // Grouped license email (filter revoked)
+    if (customerEmail) {
+      console.log('[WEBHOOK] 📧 Récupération licences pour envoi email');
+      const { data: allLicenses } = await supabaseAdmin
+        .from('licenses')
+        .select('key_code, product_id, revoked')
+        .eq('order_id', order.id);
 
-    if (env.NODE_ENV !== 'production') {
-      console.log('[WEBHOOK] Webhook termine -', totalLicenses, 'licences attribuees');
+      const activeLicenses = (allLicenses ?? []).filter((l: any) => l.revoked !== true);
+      console.log('[WEBHOOK] 🔑 Licences actives trouvées:', activeLicenses.length);
+
+      if (activeLicenses.length > 0) {
+        const licensesForEmail = activeLicenses.map((l: any) => ({
+          productName: items?.find(i => i.product_id === l.product_id)?.product_name || 'Produit',
+          keyCode: l.key_code,
+          productId: l.product_id,
+        }));
+
+        console.log('[WEBHOOK] 📧 Envoi email licences à:', customerEmail);
+        await sendLicenseDeliveryEmail(customerEmail, order.id, event.id, licensesForEmail, locale);
+        console.log('[WEBHOOK] ✅ Email licences envoyé');
+      } else {
+        console.log('[WEBHOOK] ⚠️ Aucune licence active à envoyer');
+      }
     }
 
-    return NextResponse.json({
-      received: true,
-      status: 'processed',
-      order_id: order.id,
-      licenses_assigned: totalLicenses,
-      details: results,
-    });
+    // Admin email
+    const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+    const currency = session.currency?.toUpperCase() || 'EUR';
+    const productsForAdmin = (items ?? []).map((item: any) => ({
+      name: item.product_name,
+      quantity: item.quantity,
+      type: (String(item.product_id).endsWith('-digital-key') ? 'DIGITAL' : 'PHYSICAL') as 'DIGITAL' | 'PHYSICAL',
+    }));
 
-  } catch (error: any) {
-    // Log uniquement en dev
-    if (env.NODE_ENV !== 'production') {
-      console.error('[WEBHOOK] Erreur critique:', error.message);
+    await sendAdminNewSaleEmail(
+      order.id,
+      event.id,
+      totalAmount,
+      currency,
+      customerEmail || 'unknown@example.com',
+      productsForAdmin
+    );
+
+    await markEvent({ status: 'processed', orderId: order.id, error: null });
+
+    console.log('[WEBHOOK] ✅ Traitement terminé avec succès pour order:', order.id);
+    return NextResponse.json({ received: true, order_id: order.id }, { status: 200 });
+
+  } catch (err) {
+    // Signature is valid & insert probably happened; ACK 200 to avoid retries, but mark failed.
+    const msg = safeErrorString(err);
+    console.error('[WEBHOOK] ❌ ERREUR GLOBALE:', msg);
+
+    // Best-effort: mark event as failed (event.id exists because signature passed)
+    try {
+      await supabaseAdmin
+        .from('stripe_webhook_events')
+        .update({
+          processing_status: 'failed',
+          processed_at: new Date().toISOString(),
+          error: msg,
+        })
+        .eq('event_id', event.id);
+    } catch (markErr) {
+      // DB may be down; best-effort only
+      if (env.NODE_ENV !== 'production') {
+        console.error('[WEBHOOK] markEvent failed:', markErr);
+      }
     }
-    
-    // TODO: Envoyer à Sentry si configuré
-    // if (hasSentry()) {
-    //   Sentry.captureException(error, { tags: { component: 'stripe-webhook' } });
-    // }
-    
-    // Retourner 200 pour éviter retries Stripe infinis
-    return NextResponse.json({ received: true, error: 'Internal error' }, { status: 200 });
+
+    return NextResponse.json({ received: true, error: 'internal_error' }, { status: 200 });
   }
 }

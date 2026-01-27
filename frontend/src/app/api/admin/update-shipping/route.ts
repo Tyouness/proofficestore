@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
+import { sendShippingTrackingEmail } from '@/lib/email';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,13 +51,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Mettre à jour la commande
-    const { error } = await supabaseAdmin
+    const { data: updatedOrder, error } = await supabaseAdmin
       .from('orders')
       .update({
         tracking_number: trackingNumber,
         shipping_status: shippingStatus
       })
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .select('email_client, shipping_address')
+      .single();
 
     if (error) {
       console.error('[Admin Update Shipping Error]', error);
@@ -66,7 +69,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: Envoyer un email au client avec le tracking
+    // 📧 Envoyer email au client si statut = shipped (avec idempotence DB)
+    // dedupe_key = shipping:{orderId}:{trackingNumber}:{status}
+    if (shippingStatus === 'shipped' && updatedOrder?.email_client) {
+      await sendShippingTrackingEmail(
+        updatedOrder.email_client,
+        orderId,
+        trackingNumber,
+        shippingStatus,
+        'Colissimo',
+        updatedOrder.shipping_address
+      );
+    }
 
     return NextResponse.json({
       success: true,
