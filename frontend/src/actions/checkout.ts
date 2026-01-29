@@ -172,27 +172,40 @@ export async function createStripeCheckoutSession(
     const supabase = await createServerClient();
 
     // ──────────────────────────────────────────────
-    // RÉCUPÉRATION UTILISATEUR AUTHENTIFIÉ
+    // RÉCUPÉRATION UTILISATEUR (optionnel - guest checkout supporté)
     // ──────────────────────────────────────────────
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    console.log('[CHECKOUT] DEBUG user:', user?.id, user?.email, 'error:', userError?.message);
+    const isGuest = !user?.id;
+    console.log('[CHECKOUT] DEBUG user:', user?.id || 'GUEST', user?.email || email, 'error:', userError?.message);
 
-    if (!user?.id) {
-      console.error('[CHECKOUT] ❌ Utilisateur non authentifié');
-      return { success: false, error: 'Unauthorized - Vous devez être connecté' };
-    }
+    // Note: On accepte maintenant les commandes guest (isGuest = true)
+    // L'email sera utilisé pour identifier la commande
 
     // ──────────────────────────────────────────────
     // RATE LIMITING - Protection anti-spam
     // ──────────────────────────────────────────────
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     
-    const { count: pendingCount } = await supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', 'pending')
-      .gt('created_at', tenMinutesAgo);
+    // Rate limit par user_id OU par email (pour les guests)
+    let pendingCount = null;
+    if (user?.id) {
+      const result = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .gt('created_at', tenMinutesAgo);
+      pendingCount = result.count;
+    } else {
+      const result = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .is('user_id', null)
+        .eq('email_client', email.toLowerCase().trim())
+        .eq('status', 'pending')
+        .gt('created_at', tenMinutesAgo);
+      pendingCount = result.count;
+    }
 
     if (pendingCount !== null && pendingCount >= 5) {
       return { 
@@ -232,13 +245,20 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] 🔐 Cart hash généré:', cartHash);
 
     // Chercher une commande pending existante avec le même panier
-    const { data: existingOrder } = await supabase
+    const existingOrderQuery = supabase
       .from('orders')
       .select('id, stripe_session_id')
-      .eq('user_id', user.id)
       .eq('cart_hash', cartHash)
-      .eq('status', 'pending')
-      .single();
+      .eq('status', 'pending');
+    
+    // Filtrer par user_id OU email selon si guest ou non
+    if (user?.id) {
+      existingOrderQuery.eq('user_id', user.id);
+    } else {
+      existingOrderQuery.is('user_id', null).eq('email_client', email.toLowerCase().trim());
+    }
+    
+    const { data: existingOrder } = await existingOrderQuery.single();
 
     if (existingOrder?.stripe_session_id) {
       console.log('[CHECKOUT] ♻️ Commande pending existante trouvée:', existingOrder.id);
@@ -381,7 +401,7 @@ export async function createStripeCheckoutSession(
     console.log('[CHECKOUT] 💾 Tentative de création de commande dans Supabase...');
     
     const orderData: Record<string, any> = {
-      user_id: user.id,
+      user_id: user?.id || null,  // NULL pour les guests
       email_client: email.toLowerCase().trim(),
       status: 'pending' as const,
       total_amount: totalAmountCents,
@@ -479,14 +499,14 @@ export async function createStripeCheckoutSession(
       cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
       metadata: {
         order_id: order.id,  // snake_case pour cohérence webhook
-        user_id: user.id,
+        user_id: user?.id || 'guest',  // 'guest' si commande sans compte
       },
       expires_at: Math.floor(Date.now() / 1000) + (60 * 60), // Expire après 1 heure (sécurité)
     });
 
     console.log('[CHECKOUT] ✅ Session Stripe créée, ID:', session.id);
     console.log('[CHECKOUT] 🔗 URL de checkout:', session.url);
-    console.log('[CHECKOUT] 📦 Metadata envoyée:', { order_id: order.id, user_id: user.id });
+    console.log('[CHECKOUT] 📦 Metadata envoyée:', { order_id: order.id, user_id: user?.id || 'guest', is_guest: !user?.id });
 
     // Mise à jour de la commande avec le session_id
     // ⚠️ Utilisation du client ADMIN pour contourner le RLS

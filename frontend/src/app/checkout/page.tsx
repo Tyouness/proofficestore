@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/client';
 import ShippingAddressForm, { type ShippingFormData } from '@/components/ShippingAddressForm';
 import { cartHasPhysicalItems, shippingAddressSchema } from '@/lib/shipping-validation';
+import AuthChoiceModal from '@/components/AuthChoiceModal';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -35,6 +36,8 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [proceedAsGuest, setProceedAsGuest] = useState(false);
 
   // État pour l'adresse de livraison (si nécessaire)
   const hasPhysicalItems = cartHasPhysicalItems(items.map(item => ({ variant: item.format as 'digital' | 'dvd' | 'usb' })));
@@ -94,6 +97,12 @@ export default function CheckoutPage() {
 
     if (items.length === 0) {
       toast.error('Votre panier est vide');
+      return;
+    }
+
+    // Si l'utilisateur n'est pas connecté et n'a pas choisi de continuer en guest
+    if (!isAuthenticated && !proceedAsGuest) {
+      setShowAuthModal(true);
       return;
     }
 
@@ -363,6 +372,14 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de choix d'authentification */}
+      <AuthChoiceModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onContinueAsGuest={() => setProceedAsGuest(true)}
+        email={email}
+      />
     </div>
   );
 }

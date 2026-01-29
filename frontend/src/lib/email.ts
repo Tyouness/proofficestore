@@ -51,7 +51,8 @@ type EmailKind =
   | 'support_reply_user'
   | 'support_reply_admin'
   | 'stock_request_user'
-  | 'stock_request_admin';
+  | 'stock_request_admin'
+  | 'welcome_email';
 
 interface SendEmailArgs {
   dedupeKey: string;
@@ -1212,4 +1213,5 @@ export async function sendSupportReplyNotificationToAdmin(
     payload: { ticketId, ticketSubject, customerEmail, messagePreview },
   });
 }
+
 
