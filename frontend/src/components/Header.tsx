@@ -40,16 +40,19 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       // Déconnexion Supabase côté client
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        console.error('Erreur de déconnexion:', error);
-      }
-      // Redirection vers la page d'accueil
-      window.location.href = '/';
+      await supabase.auth.signOut({ scope: 'local' });
+      
+      // Nettoyer le localStorage
+      localStorage.clear();
+      
+      // Forcer un reload complet vers la page d'accueil
+      // Utiliser replace pour éviter que l'utilisateur revienne en arrière
+      window.location.replace('/');
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
-      // Redirection quand même en cas d'erreur
-      window.location.href = '/';
+      // En cas d'erreur, forcer quand même la déconnexion
+      localStorage.clear();
+      window.location.replace('/');
     }
   };
 

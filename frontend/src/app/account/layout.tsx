@@ -9,10 +9,12 @@ export default async function AccountLayout({
 }) {
   const supabase = await createServerClient();
   
+  // Forcer un refresh de la session pour éviter le cache
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+  // Rediriger vers login si pas d'utilisateur ou erreur
   if (!user || userError) {
-    redirect('/login');
+    redirect('/login?reason=unauthorized');
   }
 
   return (
