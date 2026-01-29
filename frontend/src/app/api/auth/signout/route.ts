@@ -1,21 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
+import { env } from '@/lib/env';
+
+// Client Supabase pour la déconnexion
+const supabase = createClient(
+  env.NEXT_PUBLIC_SUPABASE_URL,
+  env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
 export async function POST(req: NextRequest) {
   try {
-    // Supprimer le cookie d'authentification
-    const cookieStore = await cookies();
-    cookieStore.delete('sb-hzptzuljmexfflefxwqy-auth-token');
-
-    // Rediriger vers la page de connexion
-    return NextResponse.redirect(new URL('/login', req.url));
+    console.log('[SIGNOUT] POST - Déconnexion demandée');
+    
+    // Retourner un succès - la déconnexion réelle se fait côté client
+    return NextResponse.json({ 
+      success: true, 
+      redirectUrl: '/' 
+    });
   } catch (error) {
-    console.error('Error signing out:', error);
-    return NextResponse.redirect(new URL('/', req.url));
+    console.error('[SIGNOUT] Erreur:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Erreur lors de la déconnexion' 
+    }, { status: 500 });
   }
 }
 
 export async function GET(req: NextRequest) {
-  // Permettre la déconnexion via GET également (pour les liens <a>)
-  return POST(req);
+  // Redirection directe pour les liens GET
+  console.log('[SIGNOUT] GET - Redirection vers /');
+  return NextResponse.redirect(new URL('/', req.url));
 }
+

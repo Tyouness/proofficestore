@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 export default function Header() {
   const { cartCount } = useCart();
@@ -37,8 +38,19 @@ export default function Header() {
   }, [accountMenuOpen]);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/signout', { method: 'POST' });
-    window.location.href = '/';
+    try {
+      // Déconnexion Supabase côté client
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Erreur de déconnexion:', error);
+      }
+      // Redirection vers la page d'accueil
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+      // Redirection quand même en cas d'erreur
+      window.location.href = '/';
+    }
   };
 
   return (
