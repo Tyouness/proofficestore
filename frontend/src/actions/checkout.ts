@@ -280,28 +280,8 @@ export async function createStripeCheckoutSession(
     // ──────────────────────────────────────────────
     // 3️⃣ RÉCUPÉRATION DES PRODUITS DEPUIS SUPABASE
     // ──────────────────────────────────────────────
-    // Le productId reçu est le slug COURT (ex: 'office-2019-pro')
-    // On doit reconstruire le slug COMPLET avec le variant (ex: 'office-2019-professional-plus-digital-key')
-    
-    // Créer un mapping slug court + variant → slug complet pour la requête
-    const slugsToFetch = items.map(item => {
-      const variant = item.variant;
-      const shortSlug = item.productId;
-      
-      // Déterminer le suffixe selon le variant
-      let suffix = '';
-      if (variant === 'digital') {
-        suffix = '-digital-key';
-      } else if (variant === 'dvd') {
-        suffix = '-dvd';
-      } else if (variant === 'usb') {
-        suffix = '-usb';
-      }
-      
-      return shortSlug + suffix;
-    });
-    
-    const uniqueProductSlugs = [...new Set(slugsToFetch)];
+    // Le productId reçu EST DÉJÀ le slug complet (ex: 'office-2019-professional-plus-digital-key')
+    const uniqueProductSlugs = [...new Set(items.map(item => item.productId))];
     
     console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs complets:', uniqueProductSlugs);
 
@@ -353,24 +333,11 @@ export async function createStripeCheckoutSession(
     }> = [];
 
     for (const item of items) {
-      // Reconstruire le slug complet pour chercher dans la map
-      const variant = item.variant;
-      const shortSlug = item.productId;
-      
-      let suffix = '';
-      if (variant === 'digital') {
-        suffix = '-digital-key';
-      } else if (variant === 'dvd') {
-        suffix = '-dvd';
-      } else if (variant === 'usb') {
-        suffix = '-usb';
-      }
-      
-      const fullSlug = shortSlug + suffix;
-      const product = productsMap.get(fullSlug);
+      // Le productId est déjà le slug complet (ex: 'office-2024-professional-plus-digital-key')
+      const product = productsMap.get(item.productId);
       
       if (!product) {
-        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', fullSlug);
+        console.error('[CHECKOUT] ❌ Produit introuvable dans la map:', item.productId);
         return { success: false, error: `Produit ${item.productId} introuvable` };
       }
 
@@ -386,7 +353,7 @@ export async function createStripeCheckoutSession(
       totalAmountEuros += lineTotalEuros;
 
       orderItems.push({
-        product_id: fullSlug,  // Utiliser le slug complet avec variant
+        product_id: item.productId,  // Utiliser le slug complet directement
         product_name: product.name,
         variant: item.variant,
         unit_price: eurosToCents(unitPriceEuros),

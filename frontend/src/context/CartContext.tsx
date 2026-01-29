@@ -4,17 +4,12 @@
  * CartContext - Gestion du panier e-commerce
  * 
  * RÈGLES STRICTES :
- * - product_id = slug du produit Supabase (slug COURT: 'win-11-pro', 'off-2024-pro')
- * - Variantes : digital | dvd | usb
+ * - product_id = slug COMPLET du produit Supabase (ex: 'office-2019-professional-plus-digital-key')
+ * - Les slugs incluent le variant dans leur nom (digital-key, dvd, usb)
  * - Quantité : 1-100
  * - Persistance localStorage
  * - Pas de clearCart automatique (géré par webhook Stripe)
  * - Calculs prix pour UI uniquement
- * 
- * MIGRATION AUTOMATIQUE:
- * - Détecte les anciens slugs longs (windows-11-pro-digital-key)
- * - Les convertit en slugs courts (windows-11-pro)
- * - Sauvegarde automatiquement le panier migré
  */
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -57,7 +52,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // ──────────────────────────────────────────────
   // Chargement depuis localStorage (ONCE)
-  // + MIGRATION AUTOMATIQUE des anciens slugs longs
   // ──────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -66,43 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored) as CartItem[];
-        
-        // MIGRATION: Convertir les anciens slugs longs en slugs courts
-        let needsMigration = false;
-        const migratedItems = parsed.map(item => {
-          // Détecter les anciens slugs longs (contiennent -digital-key, -dvd, -usb)
-          if (item.id.match(/-digital-key$|-dvd$|-usb$/)) {
-            console.log('[CART] 🔄 Migration slug:', item.id);
-            needsMigration = true;
-            
-            // Extraire le slug court
-            const shortSlug = item.id.replace(/-digital-key$|-dvd$|-usb$/, '');
-            
-            // Détecter le format depuis le slug long si format non défini
-            let detectedFormat = item.format;
-            if (item.id.endsWith('-usb')) {
-              detectedFormat = 'usb';
-            } else if (item.id.endsWith('-dvd')) {
-              detectedFormat = 'dvd';
-            } else if (item.id.endsWith('-digital-key')) {
-              detectedFormat = 'digital';
-            }
-            
-            return {
-              ...item,
-              id: shortSlug,
-              format: detectedFormat,
-            };
-          }
-          return item;
-        });
-        
-        if (needsMigration) {
-          console.log('[CART] ✅ Migration effectuée, sauvegarde...');
-          localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(migratedItems));
-        }
-        
-        setItems(migratedItems);
+        setItems(parsed);
       }
     } catch (error) {
       console.error('[CART] Erreur lors du chargement:', error);
