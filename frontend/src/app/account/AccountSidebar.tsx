@@ -149,14 +149,35 @@ export default function AccountSidebar({ userEmail, userId, isMobile = false }: 
 
       {/* Déconnexion */}
       <div className="mt-8 pt-6 border-t border-gray-200">
-        <form action="/api/auth/signout" method="post">
-          <button
-            type="submit"
-            className="w-full text-left px-4 py-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            🚪 Se déconnecter
-          </button>
-        </form>
+        <button
+          onClick={async () => {
+            console.log('[SIDEBAR LOGOUT] 🚀 Début de la déconnexion');
+            try {
+              console.log('[SIDEBAR LOGOUT] 📞 Appel de supabase.auth.signOut()...');
+              const { error } = await supabase.auth.signOut({ scope: 'local' });
+              
+              if (error) {
+                console.error('[SIDEBAR LOGOUT] ❌ Erreur Supabase signOut:', error);
+              } else {
+                console.log('[SIDEBAR LOGOUT] ✅ Supabase signOut réussi');
+              }
+              
+              console.log('[SIDEBAR LOGOUT] 🧹 Nettoyage localStorage...');
+              localStorage.clear();
+              console.log('[SIDEBAR LOGOUT] ✅ localStorage nettoyé');
+              
+              console.log('[SIDEBAR LOGOUT] 🔄 Redirection vers /...');
+              window.location.replace('/');
+            } catch (error) {
+              console.error('[SIDEBAR LOGOUT] ❌ Exception capturée:', error);
+              localStorage.clear();
+              window.location.replace('/');
+            }
+          }}
+          className="w-full text-left px-4 py-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+        >
+          🚪 Se déconnecter
+        </button>
       </div>
     </div>
   );
