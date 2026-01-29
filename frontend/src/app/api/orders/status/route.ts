@@ -17,11 +17,14 @@ export async function GET(req: NextRequest) {
     const sessionId = searchParams.get('session_id');
 
     if (!sessionId) {
+      console.log('[ORDER_STATUS] ❌ session_id manquant');
       return NextResponse.json(
         { error: 'session_id requis' },
         { status: 400 }
       );
     }
+
+    console.log('[ORDER_STATUS] 🔍 Recherche commande pour session:', sessionId);
 
     // Client Supabase ADMIN (service role)
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -51,12 +54,20 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (error || !order) {
-      console.error('[ORDER_STATUS] Commande introuvable:', error);
+      console.error('[ORDER_STATUS] ❌ Commande introuvable pour session:', sessionId);
+      console.error('[ORDER_STATUS] Erreur Supabase:', error);
       return NextResponse.json(
         { error: 'Commande introuvable' },
         { status: 404 }
       );
     }
+
+    console.log('[ORDER_STATUS] ✅ Commande trouvée:', {
+      id: order.id,
+      status: order.status,
+      user_id: order.user_id || 'guest',
+      email: order.email_client
+    });
 
     return NextResponse.json(
       {

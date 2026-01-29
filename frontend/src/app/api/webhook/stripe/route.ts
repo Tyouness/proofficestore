@@ -315,7 +315,8 @@ export async function POST(req: NextRequest) {
     }
 
     // user_id validation/update
-    if (userIdFromMetadata) {
+    // Ignorer si user_id = 'guest' (commande sans compte)
+    if (userIdFromMetadata && userIdFromMetadata !== 'guest') {
       if (order.user_id === null) {
         const { error: userUpdateError } = await supabaseAdmin
           .from('orders')
