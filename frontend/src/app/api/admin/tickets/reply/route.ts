@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
 import { stripHtml } from '@/lib/sanitize';
+import { sendSupportReplyNotificationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,6 +100,35 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[API ADMIN] Message inséré avec succès:', newMessage);
+
+    // Récupérer les infos du ticket et du client pour l'email
+    const { data: ticket } = await supabaseAdmin
+      .from('support_tickets')
+      .select('user_id, subject')
+      .eq('id', ticketId)
+      .single();
+
+    if (ticket) {
+      // Récupérer l'email du client
+      const { data: userData } = await supabaseAdmin.auth.admin.getUserById(ticket.user_id);
+      const customerEmail = userData?.user?.email;
+
+      if (customerEmail) {
+        // Envoyer l'email de notification au client (non-bloquant)
+        try {
+          await sendSupportReplyNotificationEmail(
+            customerEmail,
+            ticketId,
+            ticket.subject,
+            newMessage.id
+          );
+          console.log('[API ADMIN] Email de notification envoyé au client:', customerEmail);
+        } catch (emailError) {
+          console.error('[API ADMIN] Erreur envoi email notification:', emailError);
+          // Ne pas bloquer si l'email échoue
+        }
+      }
+    }
 
     return NextResponse.json({ success: true, message: newMessage });
   } catch (error) {

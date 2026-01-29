@@ -12,6 +12,7 @@ interface SupportTicket {
   message: string;
   status: 'open' | 'closed';
   created_at: string;
+  unread_count?: number;
   lastMessageSenderRole?: 'user' | 'admin';
 }
 
@@ -54,6 +55,7 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
           message,
           status,
           created_at,
+          unread_count,
           support_messages(id, sender_role, created_at)
         `)
         .eq('user_id', userId)
@@ -229,8 +231,13 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
                 <div className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md hover:border-blue-400 transition-all cursor-pointer">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-gray-900 text-lg">
+                      <h3 className="font-semibold text-gray-900 text-lg flex items-center gap-2">
                         {ticket.subject}
+                        {ticket.unread_count && ticket.unread_count > 0 && (
+                          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                            {ticket.unread_count}
+                          </span>
+                        )}
                       </h3>
                     </div>
                     <div className="flex items-center gap-2 ml-4">

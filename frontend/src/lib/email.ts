@@ -48,6 +48,7 @@ type EmailKind =
   | 'admin_signup'
   | 'support_ticket_user'
   | 'support_ticket_admin'
+  | 'support_reply_user'
   | 'stock_request_user'
   | 'stock_request_admin';
 
@@ -957,6 +958,72 @@ export async function sendSupportTicketAdminEmail(
       </html>
     `,
     payload: { ticketId, customerEmail, subject, message, category },
+  });
+}
+
+/**
+ * 🔔 Email notification réponse admin (client)
+ */
+export async function sendSupportReplyNotificationEmail(
+  customerEmail: string,
+  ticketId: string,
+  ticketSubject: string,
+  messageId: string
+): Promise<EmailResult> {
+  const dedupeKey = `ticket:${ticketId}:reply:${messageId}`;
+
+  return sendEmail({
+    dedupeKey,
+    kind: 'support_reply_user',
+    to: customerEmail,
+    subject: `💬 Nouvelle réponse à votre ticket - ${ticketSubject}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">💬 Nouvelle réponse</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px;">Bonjour,</p>
+            
+            <p style="font-size: 16px;">Vous avez reçu une nouvelle réponse de notre équipe support concernant votre ticket :</p>
+            
+            <div style="background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #1f2937;">📋 Votre ticket</h3>
+              <p style="margin: 10px 0;"><strong>Numéro :</strong> #${ticketId.slice(0, 8)}</p>
+              <p style="margin: 10px 0;"><strong>Sujet :</strong> ${ticketSubject}</p>
+            </div>
+            
+            <div style="background: #dbeafe; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #1e40af;">
+                <strong>📨 Consultez la réponse</strong> dans votre espace client et continuez la conversation si nécessaire.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="https://www.allkeymasters.com/account/support/${ticketId}" style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold;">
+                Voir la réponse
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #6b7280;">
+              Merci de votre confiance,<br/>
+              <strong>L'équipe Support AllKeyMasters</strong>
+            </p>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              Email de notification automatique - Pour répondre, utilisez votre espace client.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { ticketId, ticketSubject, messageId },
   });
 }
 
