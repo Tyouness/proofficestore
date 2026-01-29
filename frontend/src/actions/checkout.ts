@@ -285,24 +285,34 @@ export async function createStripeCheckoutSession(
     
     console.log('[CHECKOUT] 🔍 Recherche des produits avec slugs complets:', uniqueProductSlugs);
 
+    console.log('[CHECKOUT] 🔍 AVANT requête - slugs recherchés:', JSON.stringify(uniqueProductSlugs, null, 2));
+    
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('slug, name, base_price, price')
+      .select('slug, name, base_price, price, is_active, delivery_type')
       .in('slug', uniqueProductSlugs);
+
+    console.log('[CHECKOUT] 🔍 APRÈS requête - produits reçus:', JSON.stringify(products, null, 2));
+    console.log('[CHECKOUT] 🔍 APRÈS requête - erreur:', productsError);
 
     if (productsError) {
       console.error('[CHECKOUT] ❌ Erreur Supabase lors de la récupération des produits:');
       console.error('[CHECKOUT] Error object:', JSON.stringify(productsError, null, 2));
       console.error('[CHECKOUT] Error details:', productsError);
+      console.error('[CHECKOUT] Code erreur:', productsError.code);
+      console.error('[CHECKOUT] Message erreur:', productsError.message);
       return { success: false, error: 'Erreur lors de la récupération des produits' };
     }
 
     console.log('[CHECKOUT] ✅ Produits trouvés:', products?.length || 0);
-    console.log('[CHECKOUT] 📦 Données produits:', JSON.stringify(products, null, 2));
+    console.log('[CHECKOUT] 📦 Données produits complètes:', JSON.stringify(products, null, 2));
+    console.log('[CHECKOUT] 🔍 Slugs attendus:', JSON.stringify(uniqueProductSlugs, null, 2));
+    console.log('[CHECKOUT] 🔍 Slugs trouvés dans DB:', JSON.stringify(products?.map(p => p.slug), null, 2));
 
     if (!products || products.length === 0) {
       console.error('[CHECKOUT] ❌ Aucun produit trouvé dans Supabase');
       console.error('[CHECKOUT] Slugs recherchés:', uniqueProductSlugs);
+      console.error('[CHECKOUT] 🔍 Vérifiez que ces slugs existent exactement dans votre table products');
       return { success: false, error: 'Aucun produit trouvé' };
     }
 
@@ -311,6 +321,12 @@ export async function createStripeCheckoutSession(
       console.error('[CHECKOUT] ❌ Produits manquants');
       console.error('[CHECKOUT] Attendus:', uniqueProductSlugs.length);
       console.error('[CHECKOUT] Trouvés:', products.length);
+      console.error('[CHECKOUT] 🔍 Slugs demandés:', JSON.stringify(uniqueProductSlugs, null, 2));
+      console.error('[CHECKOUT] 🔍 Slugs trouvés:', JSON.stringify(products.map(p => p.slug), null, 2));
+      const missing = uniqueProductSlugs.filter(slug => !products.find(p => p.slug === slug));
+      console.error('[CHECKOUT] ❌ SLUGS MANQUANTS DANS LA BASE:', JSON.stringify(missing, null, 2));
+      return { success: false, error: 'Certains produits sont introuvables' };
+    }
       console.error('[CHECKOUT] Slugs attendus:', uniqueProductSlugs);
       console.error('[CHECKOUT] Slugs trouvés:', products.map(p => p.slug));
       return { success: false, error: 'Certains produits sont introuvables' };
