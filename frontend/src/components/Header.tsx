@@ -38,20 +38,29 @@ export default function Header() {
   }, [accountMenuOpen]);
 
   const handleLogout = async () => {
+    console.log('[LOGOUT] 🚀 Début de la déconnexion');
+    
     try {
-      // Déconnexion Supabase côté client
-      await supabase.auth.signOut({ scope: 'local' });
+      console.log('[LOGOUT] 📞 Appel de supabase.auth.signOut()...');
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
       
-      // Nettoyer le localStorage
+      if (error) {
+        console.error('[LOGOUT] ❌ Erreur Supabase signOut:', error);
+      } else {
+        console.log('[LOGOUT] ✅ Supabase signOut réussi');
+      }
+      
+      console.log('[LOGOUT] 🧹 Nettoyage localStorage...');
       localStorage.clear();
+      console.log('[LOGOUT] ✅ localStorage nettoyé');
       
-      // Forcer un reload complet vers la page d'accueil
-      // Utiliser replace pour éviter que l'utilisateur revienne en arrière
+      console.log('[LOGOUT] 🔄 Redirection vers /...');
       window.location.replace('/');
     } catch (error) {
-      console.error('Erreur lors de la déconnexion:', error);
-      // En cas d'erreur, forcer quand même la déconnexion
+      console.error('[LOGOUT] ❌ Exception capturée:', error);
+      console.log('[LOGOUT] 🧹 Nettoyage localStorage (mode fallback)...');
       localStorage.clear();
+      console.log('[LOGOUT] 🔄 Redirection forcée vers /...');
       window.location.replace('/');
     }
   };

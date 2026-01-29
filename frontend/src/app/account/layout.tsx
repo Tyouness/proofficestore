@@ -7,15 +7,23 @@ export default async function AccountLayout({
 }: {
   children: React.ReactNode;
 }) {
+  console.log('[ACCOUNT LAYOUT] 🔍 Vérification authentification...');
+  
   const supabase = await createServerClient();
   
   // Forcer un refresh de la session pour éviter le cache
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+  console.log('[ACCOUNT LAYOUT] User:', user?.id || 'null', 'Email:', user?.email || 'null');
+  console.log('[ACCOUNT LAYOUT] Error:', userError?.message || 'null');
+
   // Rediriger vers login si pas d'utilisateur ou erreur
   if (!user || userError) {
+    console.log('[ACCOUNT LAYOUT] ❌ Pas d\'utilisateur, redirection vers /login');
     redirect('/login?reason=unauthorized');
   }
+  
+  console.log('[ACCOUNT LAYOUT] ✅ Utilisateur authentifié, accès autorisé');
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100">
