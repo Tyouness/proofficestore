@@ -49,6 +49,7 @@ type EmailKind =
   | 'support_ticket_user'
   | 'support_ticket_admin'
   | 'support_reply_user'
+  | 'support_reply_admin'
   | 'stock_request_user'
   | 'stock_request_admin';
 
@@ -1141,6 +1142,74 @@ export async function sendStockRequestAdminEmail(
       </html>
     `,
     payload: { customerEmail, productName, productId, quantity, requestId },
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// SUPPORT REPLY TO ADMIN (Notification admin quand client répond)
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 1️⃣2️⃣ Email notification admin quand un client envoie un message
+ */
+export async function sendSupportReplyNotificationToAdmin(
+  ticketId: string,
+  ticketSubject: string,
+  customerEmail: string,
+  messagePreview: string
+): Promise<EmailResult> {
+  const dedupeKey = `ticket:admin:${ticketId}:${Date.now()}`;
+  
+  return sendEmail({
+    dedupeKey,
+    kind: 'support_reply_admin',
+    to: ADMIN_EMAIL,
+    subject: `💬 Nouveau message support - ${ticketSubject}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">💬 Nouveau message support</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: white; border: 2px solid #8b5cf6; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+              <h3 style="margin-top: 0; color: #1f2937;">📋 Détails du ticket</h3>
+              <p style="margin: 10px 0;"><strong>Sujet :</strong> ${ticketSubject}</p>
+              <p style="margin: 10px 0;"><strong>Client :</strong> <a href="mailto:${customerEmail}" style="color: #3b82f6;">${customerEmail}</a></p>
+              <p style="margin: 10px 0;"><strong>Numéro :</strong> <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px; font-size: 12px;">#${ticketId.slice(0, 8)}</code></p>
+            </div>
+            
+            <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0 0 10px 0; font-size: 14px; color: #5b21b6;"><strong>📨 Aperçu du message :</strong></p>
+              <p style="margin: 0; font-size: 14px; color: #1f2937; font-style: italic;">
+                "${messagePreview.substring(0, 150)}${messagePreview.length > 150 ? '...' : ''}"
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="https://www.allkeymasters.com/admin/tickets/${ticketId}" 
+                 style="display: inline-block; background: #8b5cf6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                ➡️ Répondre au ticket
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #6b7280; text-align: center;">
+              Panel Admin - AllKeyMasters
+            </p>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              Email de notification automatique - Connectez-vous à l'admin pour répondre.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { ticketId, ticketSubject, customerEmail, messagePreview },
   });
 }
 

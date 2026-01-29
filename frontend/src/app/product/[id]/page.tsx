@@ -90,11 +90,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </h1>
           </div>
 
-          <ProductActions 
-            productId={product.slug}
-            productName={product.name}
-            basePrice={product.base_price}
-          />
+          {/* Conteneur centré et rétréci sur mobile */}
+          <div className="max-w-md mx-auto lg:max-w-none">
+            <ProductActions 
+              productId={product.slug}
+              productName={product.name}
+              basePrice={product.base_price}
+            />
+          </div>
         </div>
       </div>
 

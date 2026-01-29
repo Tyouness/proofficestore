@@ -51,6 +51,9 @@ export default async function AdminTicketPage({ params }: AdminTicketPageProps) 
     redirect('/admin/tickets');
   }
 
+  // Réinitialiser le compteur admin de messages non lus
+  await supabaseAdmin.rpc('reset_ticket_admin_unread_count', { p_ticket_id: id });
+
   // Masquer partiellement l'UUID du user
   const maskedUserId = ticket.user_id
     ? `${ticket.user_id.slice(0, 8)}...${ticket.user_id.slice(-4)}`

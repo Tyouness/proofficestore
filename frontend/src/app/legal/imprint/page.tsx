@@ -14,8 +14,7 @@ export default function ImprintPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Éditeur du site</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'entreprise :</strong> {BUSINESS_INFO.companyName}<br />
-                <strong>Adresse du siège social :</strong> {BUSINESS_INFO.address}<br />
+                <strong>Entreprise :</strong> {BUSINESS_INFO.companyName}<br />
                 <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a><br />
                 <strong>Téléphone :</strong> <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a><br />
                 <strong>Site web :</strong> <a href={BUSINESS_INFO.website} className="text-blue-600 hover:underline">{BUSINESS_INFO.website}</a>
@@ -33,15 +32,18 @@ export default function ImprintPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Hébergement</h2>
-              <p className="text-gray-700 leading-relaxed mb-3">
-                Le site {BUSINESS_INFO.companyName} est hébergé par :
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Responsabilité</h2>
+              <p className="text-gray-700 leading-relaxed">
+                <strong>{BUSINESS_INFO.companyName}</strong> s'efforce d'assurer l'exactitude et la mise à jour des 
+                informations diffusées sur ce site.
               </p>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'hébergeur :</strong> Vercel Inc.<br />
-                <strong>Adresse :</strong> 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis<br />
-                <strong>Site web :</strong> <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" 
-                className="text-blue-600 hover:underline">vercel.com</a>
+                Toutefois, nous ne pouvons garantir l'absence d'erreurs ou d'omissions. Les informations 
+                fournies le sont à titre indicatif et ne sauraient engager notre responsabilité.
+              </p>
+              <p className="text-gray-700 leading-relaxed">
+                Nous déclinons toute responsabilité en cas d'interruption du site, de problèmes techniques 
+                ou de dommages indirects résultant de l'utilisation du site.
               </p>
             </section>
 
@@ -114,9 +116,9 @@ export default function ImprintPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Responsabilité</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. Responsabilité</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>[NOM_ENTREPRISE]</strong> s'efforce d'assurer l'exactitude et la mise à jour des 
+                <strong>{BUSINESS_INFO.companyName}</strong> s'efforce d'assurer l'exactitude et la mise à jour des 
                 informations diffusées sur ce site.
               </p>
               <p className="text-gray-700 leading-relaxed">
@@ -130,40 +132,29 @@ export default function ImprintPage() {
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Liens externes</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Droit applicable</h2>
               <p className="text-gray-700 leading-relaxed">
-                Le site peut contenir des liens vers des sites externes. Nous ne sommes pas responsables du 
-                contenu de ces sites ni de leur politique de confidentialité.
+                Les présentes mentions légales sont régies par le droit français.
+              </p>
+              <p className="text-gray-700 leading-relaxed">
+                Tout litige relatif à l'utilisation du site sera soumis aux tribunaux compétents.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Droit applicable</h2>
-              <p className="text-gray-700 leading-relaxed">
-                Les présentes mentions légales sont régies par le droit <strong>[PAYS_APPLICABLE]</strong>.
-              </p>
-              <p className="text-gray-700 leading-relaxed">
-                Tout litige relatif à l'utilisation du site sera soumis aux tribunaux compétents de 
-                <strong> [JURIDICTION_COMPETENTE]</strong>.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Contact</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Contact</h2>
               <p className="text-gray-700 leading-relaxed">
                 Pour toute question relative aux présentes mentions légales, vous pouvez nous contacter :
               </p>
-              <p className="text-gray-700 leading-relaxed mt-2">
-                <strong>Email :</strong> [EMAIL_CONTACT]<br />
-                <strong>Adresse postale :</strong> [ADRESSE]<br />
-                <strong>Support :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">
-                  Système de tickets
-                </Link>
-              </p>
+              <ul className="list-none space-y-2 mt-3">
+                <li>💬 <strong>Support prioritaire :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Tickets dans votre espace client</Link></li>
+                <li>📧 <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a></li>
+                <li>📧 <strong>Cas urgents :</strong> <a href="mailto:support@allkeymasters.com" className="text-blue-600 hover:underline">support@allkeymasters.com</a></li>
+              </ul>
             </section>
 
             <p className="text-sm text-gray-500 mt-8">
-              Dernière mise à jour : <strong>[DATE_MAJ]</strong>
+              Dernière mise à jour : <strong>{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
             </p>
           </div>
 

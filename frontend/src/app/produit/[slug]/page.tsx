@@ -415,7 +415,7 @@ export default async function ProductPage({ params }: PageProps) {
             </div>
 
             {/* Product Info */}
-            <div className="flex flex-col max-w-lg mx-auto md:mx-0 md:max-w-none">
+            <div className="flex flex-col max-w-md mx-auto md:mx-0 md:max-w-none">
               <div className="mb-2">
                 <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
                   {FAMILY_LABELS[product.family] || product.family}

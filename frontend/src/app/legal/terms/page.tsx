@@ -23,7 +23,6 @@ export default function TermsPage() {
               <p className="text-gray-700 leading-relaxed mt-3">
                 <strong>Coordonnées du vendeur :</strong><br />
                 {BUSINESS_INFO.companyName}<br />
-                {BUSINESS_INFO.address}<br />
                 Email : <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a><br />
                 Téléphone : <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a>
               </p>
@@ -61,12 +60,21 @@ export default function TermsPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Livraison</h2>
               <p className="text-gray-700 leading-relaxed">
-                La livraison est <strong>instantanée et numérique</strong>. Vous recevez votre clé de licence 
-                dans votre espace client dès que le paiement est confirmé (généralement sous quelques minutes).
+                La livraison est <strong>instantanée et numérique</strong>. Vos clés de licence sont disponibles 
+                dans <strong>deux endroits</strong> :
               </p>
-              <p className="text-gray-700 leading-relaxed">
-                Un email de confirmation contenant votre clé et un guide d'installation est également envoyé 
-                à l'adresse email fournie lors de la commande.
+              <ul className="list-disc pl-6 space-y-2 text-gray-700 mt-3">
+                <li>
+                  <strong>Votre espace client</strong> (<Link href="/account" className="text-blue-600 hover:underline">/account</Link>) : 
+                  vos clés sont affichées immédiatement après confirmation du paiement
+                </li>
+                <li>
+                  <strong>Par email</strong> : un email de confirmation contenant vos clés et un guide d'installation 
+                  est envoyé à l'adresse fournie lors de la commande
+                </li>
+              </ul>
+              <p className="text-gray-700 leading-relaxed mt-3">
+                💡 <strong>Astuce :</strong> Privilégiez votre espace client pour accéder à vos clés à tout moment.
               </p>
             </section>
 
@@ -102,12 +110,19 @@ export default function TermsPage() {
                 de la livraison.
               </p>
               <p className="text-gray-700 leading-relaxed">
-                En cas de clé défectueuse ou invalide, veuillez contacter notre support via 
-                <Link href="/account/support" className="text-blue-600 hover:underline"> l'espace client</Link> 
-                dans les plus brefs délais. Nous procéderons à un remplacement ou à un remboursement selon le cas.
+                En cas de clé défectueuse ou invalide, veuillez contacter notre support :
               </p>
+              <ul className="list-disc pl-6 space-y-2 text-gray-700 mt-3">
+                <li>
+                  <strong>Recommandé :</strong> Créez un ticket via <Link href="/account/support" className="text-blue-600 hover:underline">votre espace client</Link> (réponse rapide, suivi complet)
+                </li>
+                <li>
+                  <strong>Cas urgents :</strong> Email à <a href="mailto:support@allkeymasters.com" className="text-blue-600 hover:underline">support@allkeymasters.com</a> (délai plus long)
+                </li>
+              </ul>
               <p className="text-gray-700 leading-relaxed mt-3">
-                <strong>Support technique :</strong> {BUSINESS_INFO.support.hours}
+                Nous procéderons à un remplacement ou à un remboursement selon le cas.<br />
+                <strong>Horaires :</strong> {BUSINESS_INFO.support.hours}
               </p>
             </section>
 
@@ -146,9 +161,9 @@ export default function TermsPage() {
                 Pour toute question relative aux présentes CGV, contactez-nous :
               </p>
               <ul className="list-none space-y-2 mt-3">
+                <li>� <strong>Support prioritaire :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Tickets dans votre espace client</Link></li>
                 <li>📧 Email : <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a></li>
                 <li>📞 Téléphone : <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a></li>
-                <li>📍 Adresse : {BUSINESS_INFO.address}</li>
               </ul>
             </section>
 

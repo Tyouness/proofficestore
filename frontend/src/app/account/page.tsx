@@ -112,6 +112,14 @@ export default async function AccountPage() {
     licenseMap.get(key)!.push(license.key_code);
   });
 
+  // Récupérer les tickets récents (les 3 derniers)
+  const { data: recentTickets } = await supabase
+    .from('support_tickets')
+    .select('id, subject, status, created_at, unread_count')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -121,6 +129,66 @@ export default async function AccountPage() {
           Retrouvez toutes vos licences et commandes ci-dessous
         </p>
       </div>
+
+      {/* Tickets récents */}
+      {recentTickets && recentTickets.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              💬 Tickets récents
+              {recentTickets.filter(t => t.unread_count && t.unread_count > 0).length > 0 && (
+                <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {recentTickets.reduce((sum, t) => sum + (t.unread_count || 0), 0)}
+                </span>
+              )}
+            </h2>
+            <a
+              href="/account/support"
+              className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Voir tous les tickets →
+            </a>
+          </div>
+          <div className="space-y-3">
+            {recentTickets.map((ticket: any) => (
+              <a
+                key={ticket.id}
+                href={`/account/support/${ticket.id}`}
+                className="block border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-400 transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                      {ticket.subject}
+                      {ticket.unread_count && ticket.unread_count > 0 && (
+                        <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                          {ticket.unread_count}
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(ticket.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                      ticket.status === 'open'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {ticket.status === 'open' ? '● Ouvert' : '✓ Fermé'}
+                  </span>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Liste des commandes */}
       {!paidOrders || paidOrders.length === 0 ? (

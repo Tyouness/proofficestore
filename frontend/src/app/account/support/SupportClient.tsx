@@ -92,16 +92,37 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
     setLoading(true);
 
     try {
-      const { error: insertError } = await supabase
+      const { data: newTicket, error: insertError } = await supabase
         .from('support_tickets')
         .insert({
           user_id: userId,
           subject,
           message: stripHtml(message.trim()), // XSS protection
           status: 'open',
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Envoyer email notification à l'admin (non-bloquant)
+      if (newTicket?.id) {
+        try {
+          await fetch('/api/support/notify-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticketId: newTicket.id,
+              subject,
+              customerEmail: userEmail,
+              messagePreview: message.trim(),
+            }),
+          });
+        } catch (emailError) {
+          console.error('Erreur email admin:', emailError);
+          // Ne pas bloquer si l'email échoue
+        }
+      }
 
       setSuccess('Votre ticket a été créé avec succès. Nous vous répondrons via votre espace client.');
       setMessage('');
@@ -214,7 +235,14 @@ export default function SupportClient({ userId, userEmail }: SupportClientProps)
 
       {/* Historique des tickets */}
       <div className="bg-white shadow-md rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Mes tickets</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          Mes tickets
+          {tickets.filter(t => t.unread_count && t.unread_count > 0).length > 0 && (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+              {tickets.reduce((sum, t) => sum + (t.unread_count || 0), 0)}
+            </span>
+          )}
+        </h2>
 
         {loadingTickets ? (
           <p className="text-gray-500 text-center py-8">Chargement...</p>

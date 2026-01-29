@@ -26,8 +26,7 @@ export default function PrivacyPage() {
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Responsable du traitement</h2>
               <p className="text-gray-700 leading-relaxed">
-                <strong>Nom de l'entreprise :</strong> {BUSINESS_INFO.companyName}<br />
-                <strong>Adresse :</strong> {BUSINESS_INFO.address}<br />
+                <strong>Entreprise :</strong> {BUSINESS_INFO.companyName}<br />
                 <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a><br />
                 <strong>Téléphone :</strong> <a href={`tel:${BUSINESS_INFO.phone}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.phone}</a>
               </p>
@@ -106,8 +105,8 @@ export default function PrivacyPage() {
               </p>
               <ul className="list-disc pl-6 space-y-2 text-gray-700 mt-3">
                 <li><strong>Données de compte :</strong> Tant que votre compte est actif</li>
-                <li><strong>Données de commande :</strong> [DUREE_CONSERVATION_COMMANDES] (obligations comptables)</li>
-                <li><strong>Tickets support :</strong> [DUREE_CONSERVATION_SUPPORT]</li>
+                <li><strong>Données de commande :</strong> 10 ans (obligations comptables et fiscales)</li>
+                <li><strong>Tickets support :</strong> 3 ans à compter de la clôture du ticket</li>
               </ul>
               <p className="text-gray-700 leading-relaxed mt-3">
                 Passé ces délais, vos données sont supprimées ou anonymisées.
@@ -128,8 +127,12 @@ export default function PrivacyPage() {
                 <li><strong>Droit d'opposition :</strong> Vous opposer au traitement de vos données</li>
               </ul>
               <p className="text-gray-700 leading-relaxed mt-3">
-                Pour exercer ces droits, contactez-nous à : <strong>[CONTACT_DPO]</strong>
+                Pour exercer ces droits, contactez-nous :
               </p>
+              <ul className="list-none space-y-2 mt-2">
+                <li>💬 <strong>Via votre compte :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Créez un ticket support</Link></li>
+                <li>📧 <strong>Par email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a></li>
+              </ul>
             </section>
 
             <section>
@@ -173,14 +176,15 @@ export default function PrivacyPage() {
               <p className="text-gray-700 leading-relaxed">
                 Pour toute question relative à cette politique ou à vos données personnelles, contactez-nous :
               </p>
-              <p className="text-gray-700 leading-relaxed mt-2">
-                <strong>Email :</strong> [EMAIL_CONTACT]<br />
-                <strong>DPO :</strong> [CONTACT_DPO]
-              </p>
+              <ul className="list-none space-y-2 mt-3">
+                <li>💬 <strong>Support prioritaire :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Tickets dans votre espace client</Link></li>
+                <li>📧 <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a></li>
+                <li>📧 <strong>Cas urgents :</strong> <a href="mailto:support@allkeymasters.com" className="text-blue-600 hover:underline">support@allkeymasters.com</a></li>
+              </ul>
             </section>
 
             <p className="text-sm text-gray-500 mt-8">
-              Dernière mise à jour : <strong>[DATE_MAJ]</strong>
+              Dernière mise à jour : <strong>{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
             </p>
           </div>
 

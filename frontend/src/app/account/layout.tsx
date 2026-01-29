@@ -23,13 +23,13 @@ export default async function AccountLayout({
           {/* Sidebar - desktop */}
           <aside className="hidden lg:block lg:w-64 flex-shrink-0">
             <div className="sticky top-8">
-              <AccountSidebar userEmail={user.email || ''} />
+              <AccountSidebar userEmail={user.email || ''} userId={user.id} />
             </div>
           </aside>
 
           {/* Navigation mobile - horizontal en haut */}
           <div className="lg:hidden mb-6">
-            <AccountSidebar userEmail={user.email || ''} isMobile />
+            <AccountSidebar userEmail={user.email || ''} userId={user.id} isMobile />
           </div>
 
           {/* Contenu principal */}

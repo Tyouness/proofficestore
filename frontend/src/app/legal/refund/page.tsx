@@ -90,15 +90,22 @@ export default function RefundPage() {
               <p className="text-gray-700 leading-relaxed mb-3">
                 Pour demander un remboursement, veuillez suivre ces étapes :
               </p>
+              <div className="bg-blue-50 border-l-4 border-blue-600 p-4 mb-4">
+                <p className="text-blue-900 font-semibold">💡 Recommandation importante</p>
+                <p className="text-blue-800 text-sm mt-1">
+                  Privilégiez le <Link href="/account/support" className="text-blue-600 hover:underline font-semibold">support dans votre compte</Link> pour 
+                  une réponse plus rapide et un meilleur suivi. L'email support@allkeymasters.com est réservé aux cas très urgents.
+                </p>
+              </div>
               <ol className="list-decimal pl-6 space-y-2 text-gray-700">
                 <li>
-                  Connectez-vous à votre <Link href="/account" className="text-blue-600 hover:underline">espace client</Link>
+                  <strong>Connectez-vous</strong> à votre <Link href="/account" className="text-blue-600 hover:underline">espace client</Link>
                 </li>
                 <li>
-                  Accédez à la section <Link href="/account/support" className="text-blue-600 hover:underline">Support</Link>
+                  <strong>Accédez</strong> à la section <Link href="/account/support" className="text-blue-600 hover:underline">Support</Link>
                 </li>
                 <li>
-                  Créez un ticket en sélectionnant le sujet <strong>"Demande de remboursement"</strong>
+                  <strong>Créez un ticket</strong> en sélectionnant le sujet <strong>"Demande de remboursement"</strong>
                 </li>
                 <li>
                   Fournissez les informations suivantes :
@@ -114,10 +121,13 @@ export default function RefundPage() {
                 Notre équipe examinera votre demande et vous répondra sous <strong>48 heures</strong> (jours ouvrables).
               </p>
               <p className="text-gray-700 leading-relaxed mt-3">
-                <strong>Contact support :</strong><br />
-                📧 Email : <a href={`mailto:${BUSINESS_INFO.support.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.support.email}</a><br />
-                ⏰ Disponibilité : {BUSINESS_INFO.support.hours}
+                <strong>Contact support :</strong>
               </p>
+              <ul className="list-none space-y-2 mt-2">
+                <li>💬 <strong>Recommandé :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Tickets dans votre espace client</Link> (réponse rapide)</li>
+                <li>📧 <strong>Cas urgents :</strong> <a href="mailto:support@allkeymasters.com" className="text-blue-600 hover:underline">support@allkeymasters.com</a></li>
+                <li>⏰ <strong>Disponibilité :</strong> {BUSINESS_INFO.support.hours}</li>
+              </ul>
             </section>
 
             <section>
@@ -192,16 +202,15 @@ export default function RefundPage() {
               <p className="text-gray-700 leading-relaxed">
                 Pour toute question relative à notre politique de remboursement, contactez notre support :
               </p>
-              <p className="text-gray-700 leading-relaxed mt-2">
-                <strong>Email :</strong> [EMAIL_CONTACT]<br />
-                <strong>Support :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">
-                  Système de tickets
-                </Link>
-              </p>
+              <ul className="list-none space-y-2 mt-3">
+                <li>💬 <strong>Support prioritaire :</strong> <Link href="/account/support" className="text-blue-600 hover:underline">Tickets dans votre espace client</Link></li>
+                <li>📧 <strong>Email :</strong> <a href={`mailto:${BUSINESS_INFO.email}`} className="text-blue-600 hover:underline">{BUSINESS_INFO.email}</a></li>
+                <li>📧 <strong>Cas urgents :</strong> <a href="mailto:support@allkeymasters.com" className="text-blue-600 hover:underline">support@allkeymasters.com</a></li>
+              </ul>
             </section>
 
             <p className="text-sm text-gray-500 mt-8">
-              Dernière mise à jour : <strong>[DATE_MAJ]</strong>
+              Dernière mise à jour : <strong>{new Date().toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })}</strong>
             </p>
           </div>
 

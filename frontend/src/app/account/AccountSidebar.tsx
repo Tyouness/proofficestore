@@ -2,14 +2,56 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase/client';
 
 interface AccountSidebarProps {
   userEmail: string;
+  userId: string;
   isMobile?: boolean;
 }
 
-export default function AccountSidebar({ userEmail, isMobile = false }: AccountSidebarProps) {
+export default function AccountSidebar({ userEmail, userId, isMobile = false }: AccountSidebarProps) {
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Charger le total de messages non lus
+  useEffect(() => {
+    async function loadUnreadCount() {
+      const { data } = await supabase
+        .from('support_tickets')
+        .select('unread_count')
+        .eq('user_id', userId);
+
+      if (data) {
+        const total = data.reduce((sum, ticket) => sum + (ticket.unread_count || 0), 0);
+        setUnreadCount(total);
+      }
+    }
+
+    loadUnreadCount();
+
+    // Réaltime pour mettre à jour le compteur
+    const channel = supabase
+      .channel(`user-tickets-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'support_tickets',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   const navItems = [
     {
@@ -23,6 +65,13 @@ export default function AccountSidebar({ userEmail, isMobile = false }: AccountS
       label: 'Profil & sécurité',
       icon: '👤',
       isActive: pathname === '/account/profile',
+    },
+    {
+      href: '/account/support',
+      label: 'Support',
+      icon: '💬',
+      isActive: pathname.startsWith('/account/support'),
+      badge: unreadCount > 0 ? unreadCount : null,
     },
   ];
 
@@ -38,7 +87,7 @@ export default function AccountSidebar({ userEmail, isMobile = false }: AccountS
               key={item.href}
               href={item.href}
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors
+                flex items-center gap-2 px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors relative
                 ${
                   item.isActive
                     ? 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -48,6 +97,11 @@ export default function AccountSidebar({ userEmail, isMobile = false }: AccountS
             >
               <span>{item.icon}</span>
               <span className="text-sm">{item.label}</span>
+              {item.badge && item.badge > 0 && (
+                <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           ))}
         </nav>
@@ -72,7 +126,7 @@ export default function AccountSidebar({ userEmail, isMobile = false }: AccountS
             key={item.href}
             href={item.href}
             className={`
-              flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all
+              flex items-center justify-between gap-3 px-4 py-3 rounded-lg font-medium transition-all
               ${
                 item.isActive
                   ? 'bg-blue-50 text-blue-700 border border-blue-200 shadow-sm'
@@ -80,8 +134,15 @@ export default function AccountSidebar({ userEmail, isMobile = false }: AccountS
               }
             `}
           >
-            <span className="text-xl">{item.icon}</span>
-            <span className="text-sm">{item.label}</span>
+            <span className="flex items-center gap-3">
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-sm">{item.label}</span>
+            </span>
+            {item.badge && item.badge > 0 && (
+              <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                {item.badge}
+              </span>
+            )}
           </Link>
         ))}
       </nav>

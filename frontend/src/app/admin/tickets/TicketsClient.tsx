@@ -14,6 +14,7 @@ interface Ticket {
   created_at: string;
   user_email?: string | null;
   order_reference?: string | null;
+  admin_unread_count?: number;
 }
 
 export default function TicketsClient({ initialTickets }: { initialTickets: Ticket[] }) {
@@ -64,6 +65,11 @@ export default function TicketsClient({ initialTickets }: { initialTickets: Tick
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="text-lg font-semibold text-gray-900">{ticket.subject}</h3>
+                  {ticket.admin_unread_count && ticket.admin_unread_count > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {ticket.admin_unread_count}
+                    </span>
+                  )}
                   <span
                     className={`px-3 py-1 text-xs font-medium rounded-full ${
                       ticket.status === 'open'
