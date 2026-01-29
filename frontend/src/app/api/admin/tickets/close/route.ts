@@ -1,54 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@/lib/supabase-server';
 
 export async function POST(req: NextRequest) {
   try {
-    // Vérifier que l'utilisateur est admin
-    const cookieStore = await cookies();
-    const authCookie = cookieStore.get('sb-hzptzuljmexfflefxwqy-auth-token');
-
-    if (!authCookie) {
-      return NextResponse.json(
-        { success: false, error: 'Non authentifié' },
-        { status: 401 }
-      );
-    }
-
-    let session;
-    try {
-      session = JSON.parse(authCookie.value);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Session invalide' },
-        { status: 401 }
-      );
-    }
-
-    if (!session?.access_token) {
-      return NextResponse.json(
-        { success: false, error: 'Session invalide' },
-        { status: 401 }
-      );
-    }
-
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      }
-    );
+    // Utiliser createServerClient qui gère automatiquement les cookies
+    const supabase = await createServerClient();
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
       return NextResponse.json(
-        { success: false, error: 'Session invalide' },
+        { success: false, error: 'Non authentifié' },
         { status: 401 }
       );
     }
