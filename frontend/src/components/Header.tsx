@@ -76,7 +76,7 @@ export default function Header() {
           {/* Panier */}
           <Link href="/cart" className="relative group p-2" aria-label="Voir le panier">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 group-hover:text-black transition-colors">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.11 4.634c.8 3.327-.19 6.747-2.612 9.2a43.122 43.122 0 0 1-1.287 1.206 43.122 43.122 0 0 1-1.287-1.206c-2.422-2.453-3.412-5.873-2.612-9.2l1.11-4.634c.15-.623.708-1.066 1.35-1.066h6.182c.642 0 1.2.443 1.35 1.066Z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
             </svg>
             {cartCount > 0 && (
               <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white ring-2 ring-white">

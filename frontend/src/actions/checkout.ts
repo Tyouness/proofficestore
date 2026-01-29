@@ -289,7 +289,7 @@ export async function createStripeCheckoutSession(
     
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('slug, name, base_price, is_active, delivery_type')
+      .select('slug, name, base_price, sale_price, is_active, delivery_type')
       .in('slug', uniqueProductSlugs);
 
     console.log('[CHECKOUT] 🔍 APRÈS requête - produits reçus:', JSON.stringify(products, null, 2));
@@ -332,7 +332,7 @@ export async function createStripeCheckoutSession(
     // 4️⃣ CALCUL SERVEUR DES PRIX (NEVER TRUST CLIENT)
     // ──────────────────────────────────────────────
     const productsMap = new Map(
-      products.map(p => [p.slug, { name: p.name, basePrice: p.base_price }])
+      products.map(p => [p.slug, { name: p.name, basePrice: p.base_price, salePrice: p.sale_price }])
     );
 
     let totalAmountEuros = 0;
@@ -353,11 +353,11 @@ export async function createStripeCheckoutSession(
         return { success: false, error: `Produit ${item.productId} introuvable` };
       }
 
-      // Utiliser le prix de base du produit
-      const unitPriceEuros = product.basePrice;
+      // Utiliser le prix soldé si disponible, sinon le prix de base
+      const unitPriceEuros = product.salePrice && product.salePrice > 0 ? product.salePrice : product.basePrice;
       const lineTotalEuros = unitPriceEuros * item.quantity;
       
-      console.log('[CHECKOUT] 💰 Prix produit:', product.name, '- Prix:', product.basePrice, '€/unité - Quantité:', item.quantity, '- Total ligne:', lineTotalEuros, '€');
+      console.log('[CHECKOUT] 💰 Prix produit:', product.name, '- Base:', product.basePrice, '€ - Soldé:', product.salePrice || 'N/A', '€ - Utilisé:', unitPriceEuros, '€/unité - Quantité:', item.quantity, '- Total ligne:', lineTotalEuros, '€');
       
       totalAmountEuros += lineTotalEuros;
 
