@@ -431,6 +431,13 @@ export async function POST(req: NextRequest) {
         let invoicePdfBuffer: Buffer | undefined;
         try {
           const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+          console.log('[WEBHOOK] 📄 Données pour PDF:', {
+            orderNumber: order.id,
+            customerEmail,
+            itemsCount: items?.length || 0,
+            totalAmount
+          });
+          
           invoicePdfBuffer = await generateInvoicePdf({
             orderNumber: order.id,
             orderDate: order.created_at,
@@ -445,9 +452,10 @@ export async function POST(req: NextRequest) {
             })),
             totalAmount,
           });
-          console.log('[WEBHOOK] ✅ PDF facture généré');
+          console.log('[WEBHOOK] ✅ PDF facture généré avec succès, taille:', invoicePdfBuffer.length, 'bytes');
         } catch (pdfError) {
           console.error('[WEBHOOK] ⚠️ Erreur génération PDF (continuons sans):', pdfError);
+          console.error('[WEBHOOK] 📍 Stack trace:', (pdfError as Error)?.stack);
           invoicePdfBuffer = undefined;
         }
 

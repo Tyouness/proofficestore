@@ -367,11 +367,19 @@ export async function sendLicenseDeliveryEmail(
                   </p>
                 </div>
                 
+                ${invoicePdfBuffer ? `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
                     <strong>📄 Votre facture</strong> est jointe à cet email et également disponible dans votre espace client.
                   </p>
                 </div>
+                ` : `
+                <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 14px; color: #5b21b6;">
+                    <strong>📄 Votre facture</strong> est disponible dans votre <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">espace client</a>.
+                  </p>
+                </div>
+                `}
                 
                 <div style="background: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0;">
                   <h3 style="margin-top: 0; color: #1e40af;">📥 Prochaines étapes</h3>
@@ -420,11 +428,19 @@ export async function sendLicenseDeliveryEmail(
                   </p>
                 </div>
                 
+                ${invoicePdfBuffer ? `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
                     <strong>📄 Your invoice</strong> is attached to this email and also available in your account area.
                   </p>
                 </div>
+                ` : `
+                <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                  <p style="margin: 0; font-size: 14px; color: #5b21b6;">
+                    <strong>📄 Your invoice</strong> is available in your <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">account area</a>.
+                  </p>
+                </div>
+                `}
                 
                 <div style="background: #dbeafe; padding: 20px; border-radius: 8px; margin: 20px 0;">
                   <h3 style="margin-top: 0; color: #1e40af;">📥 Next Steps</h3>
