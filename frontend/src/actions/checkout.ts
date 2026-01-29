@@ -327,10 +327,6 @@ export async function createStripeCheckoutSession(
       console.error('[CHECKOUT] ❌ SLUGS MANQUANTS DANS LA BASE:', JSON.stringify(missing, null, 2));
       return { success: false, error: 'Certains produits sont introuvables' };
     }
-      console.error('[CHECKOUT] Slugs attendus:', uniqueProductSlugs);
-      console.error('[CHECKOUT] Slugs trouvés:', products.map(p => p.slug));
-      return { success: false, error: 'Certains produits sont introuvables' };
-    }
 
     // ──────────────────────────────────────────────
     // 4️⃣ CALCUL SERVEUR DES PRIX (NEVER TRUST CLIENT)
