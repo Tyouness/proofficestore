@@ -28,25 +28,21 @@ export async function GET(
   try {
     const { order_id } = await params;
 
-    // 1. Vérifier l'authentification
+    // 1. Vérifier l'authentification (optionnelle pour guest orders)
     const supabase = await createServerClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Non authentifié. Veuillez vous connecter.' },
-        { status: 401 }
-      );
+    // 1b. Vérifier si l'utilisateur est admin (si connecté)
+    let isAdmin = false;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      isAdmin = profile?.role === 'admin';
     }
-
-    // 1b. Vérifier si l'utilisateur est admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-    
-    const isAdmin = profile?.role === 'admin';
 
     // 2. Récupérer la commande (avec paid_at pour date exacte de paiement)
     const { data: order, error: orderError } = await supabase
@@ -71,10 +67,29 @@ export async function GET(
       );
     }
 
-    // 3. Vérifier que l'utilisateur est propriétaire OU admin
-    if (order.user_id !== user.id && !isAdmin) {
+    // 3. Vérifier que l'utilisateur est propriétaire OU admin OU guest order
+    const isOwner = user && order.user_id === user.id;
+    const isGuestOrder = order.user_id === null;
+    
+    // Pour les guest orders, on ne peut pas vérifier l'ownership ici
+    // (pas de session, pas d'email dans la requête)
+    // → On permet l'accès uniquement si admin OU user connecté propriétaire
+    if (!isOwner && !isAdmin && !isGuestOrder) {
       return NextResponse.json(
         { error: 'Accès non autorisé à cette commande.' },
+        { status: 403 }
+      );
+    }
+    
+    // Pour les guest orders, on retourne l'erreur demandant de se connecter
+    // ou de contacter le support avec l'email de la commande
+    if (isGuestOrder && !isAdmin) {
+      return NextResponse.json(
+        { 
+          error: 'Commande invité détectée',
+          message: 'Pour télécharger votre preuve d\'achat, veuillez vérifier l\'email reçu lors de votre commande ou créer un compte avec l\'adresse email utilisée lors de l\'achat.',
+          orderEmail: order.email_client
+        },
         { status: 403 }
       );
     }

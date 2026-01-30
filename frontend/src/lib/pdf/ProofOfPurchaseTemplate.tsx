@@ -175,8 +175,10 @@ const styles = StyleSheet.create({
 });
 
 export const ProofOfPurchaseTemplate: React.FC<{ data: ProofOfPurchaseData }> = ({ data }) => {
-  const formatPrice = (price: number): string => {
-    return `${price.toFixed(2)} €`;
+  const formatPrice = (price: number | null | undefined): string => {
+    // S\u00e9curit\u00e9: valeur par d\u00e9faut si null/undefined
+    const safePrice = price ?? 0;
+    return `${safePrice.toFixed(2)} \u20ac`;
   };
 
   const formatDate = (dateString: string): string => {

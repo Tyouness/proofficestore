@@ -364,7 +364,7 @@ export async function POST(req: NextRequest) {
     // Fetch items
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .select('product_id, variant, quantity, product_name')
+      .select('product_id, variant, quantity, product_name, unit_price, total_price')
       .eq('order_id', order.id);
 
     if (itemsError) {
@@ -456,8 +456,8 @@ export async function POST(req: NextRequest) {
               product_name: item.product_name,
               variant_name: item.variant || null,
               quantity: item.quantity,
-              unit_price: item.total_price / item.quantity,
-              total_price: item.total_price,
+              unit_price: (item.unit_price || 0) / 100, // Centimes → Euros
+              total_price: (item.total_price || 0) / 100, // Centimes → Euros
             })),
             totalAmount,
           });
