@@ -30,8 +30,9 @@ export default function ForgotPasswordPage() {
 
       // Envoyer le lien de réinitialisation via Supabase Auth
       // Supabase vérifie automatiquement si l'email existe
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${siteUrl}/reset-password`,
       });
 
       if (error) {
