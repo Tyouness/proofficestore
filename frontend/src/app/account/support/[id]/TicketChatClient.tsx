@@ -189,26 +189,25 @@ export default function TicketChatClient({
         // Récupérer les infos du ticket pour l'email
         const { data: ticketData } = await supabase
           .from('support_tickets')
-          .select('subject, user_id')
+          .select('subject')
           .eq('id', ticketId)
           .single();
         
-        if (ticketData) {
-          const { data: userData } = await supabase.auth.admin.getUserById(ticketData.user_id);
-          const customerEmail = userData?.user?.email;
-          
-          if (customerEmail) {
-            await fetch('/api/support/notify-admin', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ticketId,
-                subject: ticketData.subject,
-                customerEmail,
-                messagePreview: messageContent || '[Pièce jointe]',
-              }),
-            });
-          }
+        // Récupérer l'email du user connecté
+        const { data: { user } } = await supabase.auth.getUser();
+        const customerEmail = user?.email;
+        
+        if (ticketData && customerEmail) {
+          await fetch('/api/support/notify-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ticketId,
+              subject: ticketData.subject,
+              customerEmail,
+              messagePreview: messageContent || '[Pièce jointe]',
+            }),
+          });
         }
       } catch (emailError) {
         console.error('[CLIENT] Erreur email admin:', emailError);

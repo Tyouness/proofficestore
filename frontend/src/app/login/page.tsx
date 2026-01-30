@@ -119,6 +119,15 @@ function LoginForm() {
 
           {/* Lien inscription */}
           <div className="mt-6 text-center">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            >
+              Mot de passe oublié ?
+            </Link>
+          </div>
+
+          <div className="mt-4 text-center">
             <p className="text-gray-600">
               Pas encore de compte ?{' '}
               <Link href="/register" className="text-blue-600 font-semibold hover:underline">

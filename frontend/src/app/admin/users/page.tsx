@@ -41,27 +41,29 @@ export default async function AdminUsersPage() {
     );
   }
 
-  // Récupérer les profils utilisateurs (nom/prénom)
+  // Récupérer les profils utilisateurs (nom complet depuis la table 'profiles')
   const { data: profiles } = await supabaseAdmin
-    .from('user_profiles')
-    .select('user_id, first_name, last_name');
+    .from('profiles')
+    .select('id, full_name');
 
   // Créer un map pour accès rapide aux profils
-  const profilesMap = new Map<string, UserProfile>();
+  const profilesMap = new Map<string, string>();
   if (profiles) {
-    profiles.forEach((profile: UserProfile) => {
-      profilesMap.set(profile.user_id, profile);
+    profiles.forEach((profile: { id: string; full_name: string | null }) => {
+      if (profile.full_name) {
+        profilesMap.set(profile.id, profile.full_name);
+      }
     });
   }
 
   // Enrichir les données utilisateurs avec les profils
   const enrichedUsers = authUsers.users.map((user) => {
-    const profile = profilesMap.get(user.id);
+    const fullName = profilesMap.get(user.id);
     return {
       id: user.id,
       email: user.email || 'N/A',
-      first_name: profile?.first_name || null,
-      last_name: profile?.last_name || null,
+      first_name: fullName || null, // On garde la structure pour compatibilité
+      last_name: null,
       created_at: user.created_at,
       email_confirmed_at: user.email_confirmed_at || null,
       last_sign_in_at: user.last_sign_in_at || null,
