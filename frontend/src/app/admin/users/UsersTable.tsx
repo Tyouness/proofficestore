@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -18,6 +19,7 @@ interface UsersTableProps {
 
 export default function UsersTable({ users }: UsersTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
 
   // Filtrer les utilisateurs par recherche
   const filteredUsers = users.filter((user) => {
@@ -47,6 +49,35 @@ export default function UsersTable({ users }: UsersTableProps) {
       return `${user.first_name || ''} ${user.last_name || ''}`.trim();
     }
     return 'Non renseigné';
+  };
+
+  const handleResetPassword = async (userId: string, userEmail: string) => {
+    if (!confirm(`Voulez-vous vraiment envoyer un lien de réinitialisation à ${userEmail} ?`)) {
+      return;
+    }
+
+    setResettingPassword(userId);
+
+    try {
+      const response = await fetch('/api/admin/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Erreur lors de l\'envoi');
+      }
+
+      toast.success(result.message || 'Lien de réinitialisation envoyé');
+    } catch (error: any) {
+      console.error('[RESET PASSWORD] Error:', error);
+      toast.error(error.message || 'Erreur lors de l\'envoi');
+    } finally {
+      setResettingPassword(null);
+    }
   };
 
   return (
@@ -90,12 +121,15 @@ export default function UsersTable({ users }: UsersTableProps) {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 ID
               </th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {filteredUsers.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                   {searchTerm ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur enregistré'}
                 </td>
               </tr>
@@ -147,6 +181,29 @@ export default function UsersTable({ users }: UsersTableProps) {
                     <code className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                       {user.id.slice(0, 8)}...
                     </code>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => handleResetPassword(user.id, user.email)}
+                      disabled={resettingPassword === user.id}
+                      className="inline-flex items-center px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resettingPassword === user.id ? (
+                        <>
+                          <svg className="animate-spin -ml-0.5 mr-1.5 h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Envoi...
+                        </>
+                      ) : (
+                        <>
+                          🔑 Réinitialiser MDP
+                        </>
+                      )}
+                    </button>
                   </td>
                 </tr>
               ))

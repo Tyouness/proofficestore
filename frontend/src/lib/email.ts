@@ -53,7 +53,8 @@ type EmailKind =
   | 'admin_reply_confirmation'
   | 'stock_request_user'
   | 'stock_request_admin'
-  | 'welcome_email';
+  | 'welcome_email'
+  | 'password_reset_confirmation';
 
 interface SendEmailArgs {
   dedupeKey: string;
@@ -1306,6 +1307,73 @@ export async function sendAdminReplySelfNotificationEmail(
     payload: { ticketId, ticketSubject, customerEmail, messageContent },
   });
 }
+
+/**
+ * 1️⃣4️⃣ Email confirmation après réinitialisation de mot de passe
+ */
+export async function sendPasswordResetConfirmationEmail(
+  email: string
+): Promise<EmailResult> {
+  const dedupeKey = `password:reset:${email}:${Date.now()}`;
+  
+  return sendEmail({
+    dedupeKey,
+    kind: 'password_reset_confirmation',
+    to: email,
+    subject: '✅ Mot de passe réinitialisé avec succès',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          
+          <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">✅ Mot de passe réinitialisé</h1>
+          </div>
+          
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px;">Bonjour,</p>
+            
+            <p style="font-size: 16px;">Votre mot de passe a été réinitialisé avec succès.</p>
+            
+            <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #065f46;">
+                <strong>🔒 Votre compte est sécurisé</strong><br>
+                Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
+              </p>
+            </div>
+            
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px;">
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                <strong>⚠️ Important :</strong> Si vous n'avez pas demandé cette réinitialisation, contactez immédiatement notre support à <a href="mailto:support@allkeymasters.com" style="color: #3b82f6;">support@allkeymasters.com</a>
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="https://www.allkeymasters.com/login" 
+                 style="display: inline-block; background: #3b82f6; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+                Se connecter
+              </a>
+            </div>
+            
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+            
+            <p style="font-size: 14px; color: #6b7280;">
+              Merci de votre confiance,<br/>
+              <strong>L'équipe AllKeyMasters</strong>
+            </p>
+            
+            <p style="font-size: 12px; color: #9ca3af; margin-top: 20px;">
+              Email de confirmation automatique - Vous recevez cet email car votre mot de passe a été modifié.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    payload: { email },
+  });
+}
+
 
 
 

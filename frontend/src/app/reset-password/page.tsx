@@ -107,6 +107,21 @@ function ResetPasswordForm() {
         return;
       }
 
+      // Envoyer email de confirmation (non-bloquant)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          await fetch('/api/auth/password-reset-confirm', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email }),
+          });
+        }
+      } catch (emailError) {
+        console.error('[RESET_PASSWORD] Email error:', emailError);
+        // Ne pas bloquer si l'email échoue
+      }
+
       toast.success('Mot de passe réinitialisé !');
       
       // Rediriger vers login après 2 secondes
