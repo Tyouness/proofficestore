@@ -38,8 +38,14 @@ const MAX_BODY_SIZE = 1024 * 1024; // 1MB
 let generateInvoicePdf: any = null;
 try {
   const pdfModule = require('@/lib/pdf/generateInvoicePdf');
-  generateInvoicePdf = pdfModule.generateInvoicePdf;
-  console.log('[WEBHOOK] ✅ Module PDF importé avec succès');
+  console.log('[WEBHOOK] 📦 pdfModule keys:', Object.keys(pdfModule));
+  console.log('[WEBHOOK] 📦 pdfModule.generateInvoicePdf type:', typeof pdfModule.generateInvoicePdf);
+  console.log('[WEBHOOK] 📦 pdfModule.default type:', typeof pdfModule.default);
+  
+  // Essayer export nommé puis default
+  generateInvoicePdf = pdfModule.generateInvoicePdf || pdfModule.default?.generateInvoicePdf || pdfModule.default;
+  
+  console.log('[WEBHOOK] ✅ Module PDF importé avec succès, fonction:', typeof generateInvoicePdf);
 } catch (importError) {
   console.error('[WEBHOOK] ❌ ERREUR IMPORT MODULE PDF:', importError);
   console.error('[WEBHOOK] 📍 Le module @react-pdf/renderer n\'est probablement pas compatible avec Vercel');
