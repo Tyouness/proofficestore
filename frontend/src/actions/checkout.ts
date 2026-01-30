@@ -362,6 +362,7 @@ export async function createStripeCheckoutSession(
       variant: ProductVariant;
       unit_price: number;
       quantity: number;
+      total_price: number; // Ajout total_price pour snapshot immuable
     }> = [];
 
     for (const item of items) {
@@ -387,6 +388,7 @@ export async function createStripeCheckoutSession(
         variant: item.variant,
         unit_price: eurosToCents(unitPriceEuros),
         quantity: item.quantity,
+        total_price: eurosToCents(lineTotalEuros), // Stocker le total_price en centimes
       });
     }
 
