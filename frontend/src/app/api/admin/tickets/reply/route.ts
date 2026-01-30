@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@/lib/supabase-server';
 import { stripHtml } from '@/lib/sanitize';
-import { sendSupportReplyNotificationEmail } from '@/lib/email';
+import { sendSupportReplyNotificationEmail, sendAdminReplySelfNotificationEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -124,7 +124,21 @@ export async function POST(request: NextRequest) {
           );
           console.log('[API ADMIN] Email de notification envoyé au client:', customerEmail);
         } catch (emailError) {
-          console.error('[API ADMIN] Erreur envoi email notification:', emailError);
+          console.error('[API ADMIN] Erreur envoi email notification client:', emailError);
+          // Ne pas bloquer si l'email échoue
+        }
+
+        // Envoyer une confirmation à l'admin (non-bloquant)
+        try {
+          await sendAdminReplySelfNotificationEmail(
+            ticketId,
+            ticket.subject,
+            customerEmail,
+            content || '[Pièce jointe]'
+          );
+          console.log('[API ADMIN] Email de confirmation envoyé à l\'admin');
+        } catch (emailError) {
+          console.error('[API ADMIN] Erreur envoi email confirmation admin:', emailError);
           // Ne pas bloquer si l'email échoue
         }
       }
