@@ -20,12 +20,12 @@
 -- 1. update_email_logs_updated_at
 ALTER FUNCTION public.update_email_logs_updated_at() SET search_path = '';
 
--- 2. allocate_licenses (si existe)
+-- 2. allocate_licenses (si existe - ignorer si n'existe pas)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'allocate_licenses') THEN
-    ALTER FUNCTION public.allocate_licenses() SET search_path = '';
-  END IF;
+  ALTER FUNCTION public.allocate_licenses() SET search_path = '';
+EXCEPTION
+  WHEN undefined_function THEN NULL;
 END $$;
 
 -- 3. increment_ticket_unread_count
@@ -34,28 +34,28 @@ ALTER FUNCTION public.increment_ticket_unread_count() SET search_path = '';
 -- 4. reset_ticket_unread_count
 ALTER FUNCTION public.reset_ticket_unread_count(UUID) SET search_path = '';
 
--- 5. handle_new_user_role (si existe)
+-- 5. handle_new_user_role (si existe - ignorer si n'existe pas)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'handle_new_user_role') THEN
-    ALTER FUNCTION public.handle_new_user_role() SET search_path = '';
-  END IF;
+  ALTER FUNCTION public.handle_new_user_role() SET search_path = '';
+EXCEPTION
+  WHEN undefined_function THEN NULL;
 END $$;
 
--- 6. make_order_reference (si existe)
+-- 6. make_order_reference (si existe - ignorer si n'existe pas)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'make_order_reference') THEN
-    ALTER FUNCTION public.make_order_reference(UUID) SET search_path = '';
-  END IF;
+  ALTER FUNCTION public.make_order_reference(UUID) SET search_path = '';
+EXCEPTION
+  WHEN undefined_function THEN NULL;
 END $$;
 
--- 7. set_order_reference (si existe)
+-- 7. set_order_reference (si existe - ignorer si n'existe pas)
 DO $$ 
 BEGIN
-  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'set_order_reference') THEN
-    ALTER FUNCTION public.set_order_reference() SET search_path = '';
-  END IF;
+  ALTER FUNCTION public.set_order_reference() SET search_path = '';
+EXCEPTION
+  WHEN undefined_function THEN NULL;
 END $$;
 
 -- 8. update_stock_requests_updated_at
