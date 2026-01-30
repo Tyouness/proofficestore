@@ -311,7 +311,7 @@ export async function sendLicenseDeliveryEmail(
   stripeEventId: string,
   licenses: Array<{ productName: string; keyCode: string; productId: string }>,
   locale: string = 'fr',
-  invoicePdfBuffer?: Buffer
+  proofPdfBuffer?: Buffer
 ): Promise<EmailResult> {
   const isFrench = locale.toLowerCase().startsWith('fr');
   const dedupeKey = `stripe:${stripeEventId}:license_delivery`;
@@ -367,16 +367,16 @@ export async function sendLicenseDeliveryEmail(
                   </p>
                 </div>
                 
-                ${invoicePdfBuffer ? `
+                ${proofPdfBuffer ? `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
-                    <strong>📄 Votre facture</strong> est jointe à cet email et également disponible dans votre espace client.
+                    <strong>📄 Votre preuve d'achat</strong> est jointe à cet email et également disponible dans votre espace client.
                   </p>
                 </div>
                 ` : `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
-                    <strong>📄 Votre facture</strong> est disponible dans votre <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">espace client</a>.
+                    <strong>📄 Votre preuve d'achat</strong> est disponible dans votre <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">espace client</a>.
                   </p>
                 </div>
                 `}
@@ -428,16 +428,16 @@ export async function sendLicenseDeliveryEmail(
                   </p>
                 </div>
                 
-                ${invoicePdfBuffer ? `
+                ${proofPdfBuffer ? `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
-                    <strong>📄 Your invoice</strong> is attached to this email and also available in your account area.
+                    <strong>📄 Your proof of purchase</strong> is attached to this email and also available in your account area.
                   </p>
                 </div>
                 ` : `
                 <div style="background: #ede9fe; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; border-radius: 5px;">
                   <p style="margin: 0; font-size: 14px; color: #5b21b6;">
-                    <strong>📄 Your invoice</strong> is available in your <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">account area</a>.
+                    <strong>📄 Your proof of purchase</strong> is available in your <a href="https://www.allkeymasters.com/account" style="color: #3b82f6; font-weight: bold;">account area</a>.
                   </p>
                 </div>
                 `}
@@ -467,8 +467,11 @@ export async function sendLicenseDeliveryEmail(
           </html>
         `,
     payload: { orderId, stripeEventId, licenses, locale },
-    attachments: invoicePdfBuffer
-      ? [{ filename: `Facture-${orderId}.pdf`, content: invoicePdfBuffer }]
+    attachments: proofPdfBuffer
+      ? [{ 
+          filename: `Preuve-d-achat-${orderId}.pdf`, 
+          content: proofPdfBuffer
+        }]
       : undefined,
   });
 }

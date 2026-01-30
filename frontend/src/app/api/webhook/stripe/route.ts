@@ -31,9 +31,19 @@ import {
   sendLicenseDeliveryEmail,
   sendAdminNewSaleEmail,
 } from '@/lib/email';
-import { generateInvoicePdf } from '@/lib/pdf/generateInvoicePdf';
 
 const MAX_BODY_SIZE = 1024 * 1024; // 1MB
+
+// Import dynamique du PDF pour éviter crash au démarrage
+let generateInvoicePdf: any = null;
+try {
+  const pdfModule = require('@/lib/pdf/generateInvoicePdf');
+  generateInvoicePdf = pdfModule.generateInvoicePdf;
+  console.log('[WEBHOOK] ✅ Module PDF importé avec succès');
+} catch (importError) {
+  console.error('[WEBHOOK] ❌ ERREUR IMPORT MODULE PDF:', importError);
+  console.error('[WEBHOOK] 📍 Le module @react-pdf/renderer n\'est probablement pas compatible avec Vercel');
+}
 
 type ProcessingStatus = 'processing' | 'processed' | 'failed' | 'dropped';
 
@@ -426,19 +436,25 @@ export async function POST(req: NextRequest) {
           productId: l.product_id,
         }));
 
-        // Générer le PDF de facture
-        console.log('[WEBHOOK] 📄 Génération PDF facture');
-        let invoicePdfBuffer: Buffer | undefined;
-        try {
-          const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
-          console.log('[WEBHOOK] 📄 Données pour PDF:', {
-            orderNumber: order.id,
-            customerEmail,
-            itemsCount: items?.length || 0,
-            totalAmount
-          });
-          
-          invoicePdfBuffer = await generateInvoicePdf({
+        // Générer le PDF preuve d'achat
+        console.log('[WEBHOOK] 📄 Génération PDF preuve d\'achat');
+        let proofPdfBuffer: Buffer | undefined;
+        
+        // Vérifier si le module PDF est disponible
+        if (!generateInvoicePdf) {
+          console.error('[WEBHOOK] ⚠️ Module PDF non disponible (échec import), email sans preuve');
+          proofPdfBuffer = undefined;
+        } else {
+          try {
+            const totalAmount = session.amount_total ? session.amount_total / 100 : 0;
+            console.log('[WEBHOOK] 📄 Données pour PDF:', {
+              orderNumber: order.id,
+              customerEmail,
+              itemsCount: items?.length || 0,
+              totalAmount
+            });
+            
+            proofPdfBuffer = await generateInvoicePdf({
             orderNumber: order.id,
             orderDate: order.created_at,
             customerEmail: customerEmail,
@@ -452,15 +468,18 @@ export async function POST(req: NextRequest) {
             })),
             totalAmount,
           });
-          console.log('[WEBHOOK] ✅ PDF facture généré avec succès, taille:', invoicePdfBuffer.length, 'bytes');
-        } catch (pdfError) {
-          console.error('[WEBHOOK] ⚠️ Erreur génération PDF (continuons sans):', pdfError);
-          console.error('[WEBHOOK] 📍 Stack trace:', (pdfError as Error)?.stack);
-          invoicePdfBuffer = undefined;
+          console.log('[WEBHOOK] ✅ PDF preuve d\'achat généré avec succès, taille:', proofPdfBuffer?.length || 0, 'bytes');
+          } catch (pdfError) {
+            console.error('[WEBHOOK] ⚠️ Erreur génération PDF (continuons sans):', pdfError);
+            console.error('[WEBHOOK] 📍 Stack trace:', (pdfError as Error)?.stack);
+            console.error('[WEBHOOK] 📍 Error name:', (pdfError as Error)?.name);
+            console.error('[WEBHOOK] 📍 Error message:', (pdfError as Error)?.message);
+            proofPdfBuffer = undefined;
+          }
         }
 
         console.log('[WEBHOOK] 📧 Envoi email licences à:', customerEmail);
-        await sendLicenseDeliveryEmail(customerEmail, order.id, event.id, licensesForEmail, locale, invoicePdfBuffer);
+        await sendLicenseDeliveryEmail(customerEmail, order.id, event.id, licensesForEmail, locale, proofPdfBuffer);
         console.log('[WEBHOOK] ✅ Email licences envoyé');
       } else {
         console.log('[WEBHOOK] ⚠️ Aucune licence active à envoyer');
