@@ -50,6 +50,7 @@ type EmailKind =
   | 'support_ticket_admin'
   | 'support_reply_user'
   | 'support_reply_admin'
+  | 'admin_reply_confirmation'
   | 'stock_request_user'
   | 'stock_request_admin'
   | 'welcome_email';
