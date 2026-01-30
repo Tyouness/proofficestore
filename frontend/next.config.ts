@@ -5,6 +5,12 @@ const isProd = process.env.NODE_ENV === 'production';
 const nextConfig: NextConfig = {
   /* config options here */
   
+  // ── Serverless Function Configuration ──
+  experimental: {
+    // Augmenter la taille max des fonctions serverless pour @react-pdf/renderer
+    serverComponentsExternalPackages: ['@react-pdf/renderer'],
+  },
+  
   // ── Image Optimization ──
   images: {
     qualities: [75, 85],
