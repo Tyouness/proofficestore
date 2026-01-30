@@ -17,8 +17,20 @@ function ResetPasswordForm() {
   useEffect(() => {
     // Vérifier si on a un token de récupération dans l'URL
     const checkRecoveryToken = async () => {
-      // Méthode 1: Vérifier dans les query params (?code=xxx)
+      // Vérifier d'abord s'il y a des erreurs dans l'URL (lien expiré, déjà utilisé, etc.)
       const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      const errorCode = urlParams.get('error_code');
+      
+      if (error || errorCode) {
+        // Lien expiré ou invalide (venant de Supabase)
+        toast.error('Lien invalide ou expiré');
+        setIsValidToken(false);
+        setCheckingToken(false);
+        return;
+      }
+
+      // Méthode 1: Vérifier dans les query params (?code=xxx)
       const code = urlParams.get('code');
       
       // Méthode 2: Vérifier dans le hash (#access_token=xxx)
@@ -110,12 +122,15 @@ function ResetPasswordForm() {
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Lien invalide</h1>
-          <p className="text-gray-600 mb-6">
-            Ce lien de réinitialisation est invalide ou a expiré.
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Lien expiré</h1>
+          <p className="text-gray-600 mb-2">
+            Ce lien de réinitialisation a expiré ou a déjà été utilisé.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            Les liens de réinitialisation expirent après 1 heure et ne peuvent être utilisés qu'une seule fois.
           </p>
           <Link
             href="/forgot-password"
