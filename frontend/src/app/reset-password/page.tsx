@@ -17,11 +17,17 @@ function ResetPasswordForm() {
   useEffect(() => {
     // Vérifier si on a un token de récupération dans l'URL
     const checkRecoveryToken = async () => {
+      // Méthode 1: Vérifier dans les query params (?code=xxx)
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      
+      // Méthode 2: Vérifier dans le hash (#access_token=xxx)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token');
       const type = hashParams.get('type');
 
-      if (type === 'recovery' && accessToken) {
+      // Si on a un code dans les query params OU un access_token de type recovery
+      if (code || (type === 'recovery' && accessToken)) {
         setIsValidToken(true);
       } else {
         toast.error('Lien invalide ou expiré');
