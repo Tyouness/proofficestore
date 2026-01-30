@@ -364,7 +364,7 @@ export async function POST(req: NextRequest) {
     // Fetch items
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('order_items')
-      .select('product_id, variant, quantity, product_name, unit_price, total_price')
+      .select('product_id, variant, quantity, product_name, unit_price')
       .eq('order_id', order.id);
 
     if (itemsError) {
@@ -452,13 +452,17 @@ export async function POST(req: NextRequest) {
             orderDate: order.created_at,
             customerEmail: customerEmail,
             paymentMethod: 'Carte bancaire (Stripe)',
-            items: (items ?? []).map((item: any) => ({
-              product_name: item.product_name,
-              variant_name: item.variant || null,
-              quantity: item.quantity,
-              unit_price: (item.unit_price || 0) / 100, // Centimes → Euros
-              total_price: (item.total_price || 0) / 100, // Centimes → Euros
-            })),
+            items: (items ?? []).map((item: any) => {
+              const unitPriceEuros = (item.unit_price || 0) / 100; // Centimes → Euros
+              const totalPriceEuros = unitPriceEuros * (item.quantity || 1); // Calculer à la volée
+              return {
+                product_name: item.product_name,
+                variant_name: item.variant || null,
+                quantity: item.quantity,
+                unit_price: unitPriceEuros,
+                total_price: totalPriceEuros,
+              };
+            }),
             totalAmount,
           });
           
