@@ -6,10 +6,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   
   // ── Serverless Function Configuration ──
-  experimental: {
-    // Augmenter la taille max des fonctions serverless pour @react-pdf/renderer
-    serverComponentsExternalPackages: ['@react-pdf/renderer'],
-  },
+  // Externaliser @react-pdf/renderer pour réduire la taille du bundle
+  serverExternalPackages: ['@react-pdf/renderer'],
   
   // ── Image Optimization ──
   images: {
