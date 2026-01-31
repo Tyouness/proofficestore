@@ -1,12 +1,12 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
-import createIntlMiddleware from 'next-intl/middleware';
-import { locales, defaultLocale } from '@/config/i18n';
+// import createIntlMiddleware from 'next-intl/middleware';
+// import { locales, defaultLocale } from '@/config/i18n';
 
 /**
  * Middleware Next.js pour :
- * 1. Gérer l'internationalisation (routing /fr/, /en/, etc.)
+ * 1. Gérer l'internationalisation (routing /fr/, /en/, etc.) - TEMPORAIREMENT DÉSACTIVÉ
  * 2. Maintenir la session Supabase
  * 
  * SÉCURITÉ :
@@ -17,23 +17,28 @@ import { locales, defaultLocale } from '@/config/i18n';
  * ✅ Rafraîchissement automatique des tokens
  * 
  * I18N :
- * ✅ Détection automatique de la langue du navigateur
- * ✅ Routing par segments (/fr/, /en/, /de/, etc.)
- * ✅ SEO hreflang automatique
+ * ⏸️ TEMPORAIREMENT DÉSACTIVÉ - En attente de restructuration app/[locale]/
+ * ⏸️ Détection automatique de la langue du navigateur
+ * ⏸️ Routing par segments (/fr/, /en/, /de/, etc.)
+ * ⏸️ SEO hreflang automatique
  */
 
-// Créer le middleware i18n
-const intlMiddleware = createIntlMiddleware({
-  locales,
-  defaultLocale,
-  localePrefix: 'always', // Force toujours /fr/, /en/, etc.
-});
+// Créer le middleware i18n (DÉSACTIVÉ TEMPORAIREMENT)
+// const intlMiddleware = createIntlMiddleware({
+//   locales,
+//   defaultLocale,
+//   localePrefix: 'always', // Force toujours /fr/, /en/, etc.
+// });
 
 export async function middleware(request: NextRequest) {
-  // 1. D'abord gérer l'i18n
-  let response = intlMiddleware(request);
+  // 1. Créer la réponse de base (sans i18n pour l'instant)
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
   
-  // 2. Ensuite gérer Supabase sur la réponse i18n
+  // 2. Gérer Supabase
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
