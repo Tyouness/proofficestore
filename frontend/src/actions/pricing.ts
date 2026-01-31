@@ -67,6 +67,25 @@ export async function updateProductPricing(
         : null,
       onSale: formData.get('onSale') === 'true',
       promoLabel: formData.get('promoLabel') || null,
+      // Prix multi-devises
+      priceEur: formData.get('priceEur') 
+        ? parseFloat(formData.get('priceEur') as string) 
+        : null,
+      priceUsd: formData.get('priceUsd') 
+        ? parseFloat(formData.get('priceUsd') as string) 
+        : null,
+      priceGbp: formData.get('priceGbp') 
+        ? parseFloat(formData.get('priceGbp') as string) 
+        : null,
+      priceCad: formData.get('priceCad') 
+        ? parseFloat(formData.get('priceCad') as string) 
+        : null,
+      priceAud: formData.get('priceAud') 
+        ? parseFloat(formData.get('priceAud') as string) 
+        : null,
+      priceChf: formData.get('priceChf') 
+        ? parseFloat(formData.get('priceChf') as string) 
+        : null,
     };
 
     const validatedData = updateProductPricingSchema.parse(rawData);
@@ -109,6 +128,13 @@ export async function updateProductPricing(
         sale_price: validatedData.salePrice,
         on_sale: validatedData.onSale,
         promo_label: validatedData.promoLabel,
+        // Prix multi-devises
+        price_eur: validatedData.priceEur,
+        price_usd: validatedData.priceUsd,
+        price_gbp: validatedData.priceGbp,
+        price_cad: validatedData.priceCad,
+        price_aud: validatedData.priceAud,
+        price_chf: validatedData.priceChf,
       })
       .eq('id', validatedData.productId);
 
@@ -167,10 +193,10 @@ export async function getAllProductPricing() {
       return { success: false, message: 'Accès refusé', data: [] };
     }
 
-    // Récupérer les produits avec prix calculés + group_id (avec client admin)
+    // Récupérer les produits avec prix calculés + group_id + prix multi-devises (avec client admin)
     const { data, error } = await supabaseAdmin
       .from('products')
-      .select('id, slug, name, base_price, sale_price, on_sale, promo_label, group_id, delivery_format')
+      .select('id, slug, name, base_price, sale_price, on_sale, promo_label, group_id, delivery_format, price_eur, price_usd, price_gbp, price_cad, price_aud, price_chf')
       .eq('is_active', true)
       .order('name');
 
