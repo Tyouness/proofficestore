@@ -16,10 +16,16 @@ import { toast } from 'sonner';
 import { getProductImagePath } from '@/lib/product-images';
 import { getCartImageAlt } from '@/lib/image-seo';
 import Image from 'next/image';
+import { formatPrice, type Currency } from '@/lib/currency';
+import { useParams } from 'next/navigation';
 
 export default function CartPage() {
   const router = useRouter();
   const { items, totalPrice, updateQuantity, removeFromCart, isLoaded } = useCart();
+  const params = useParams();
+  // Détecter la locale depuis l'URL (ex: /fr/cart ou /en/cart)
+  const locale = (params?.locale as string) || 'fr';
+  const currency: Currency = locale === 'en' ? 'USD' : 'EUR';
 
   const handleQuantityChange = (id: string, format: string, newQuantity: number) => {
     if (newQuantity < 1 || newQuantity > 100) {
@@ -222,10 +228,10 @@ export default function CartPage() {
                 {/* Prix */}
                 <div className="text-right">
                   <p className="text-2xl font-bold text-gray-900">
-                    {(item.price * item.quantity).toFixed(2)} €
+                    {formatPrice((item.price * item.quantity), currency)}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    {item.price.toFixed(2)} € × {item.quantity}
+                    {formatPrice(item.price, currency)} × {item.quantity}
                   </p>
                 </div>
               </div>
@@ -246,7 +252,7 @@ export default function CartPage() {
             <div className="space-y-3 mb-6 pb-6 border-b border-gray-200">
               <div className="flex justify-between text-gray-700">
                 <span>Sous-total</span>
-                <span className="font-semibold">{totalPrice.toFixed(2)} €</span>
+                <span className="font-semibold">{formatPrice(totalPrice, currency)}</span>
               </div>
               <div className="flex justify-between text-sm text-gray-500">
                 <span>TVA incluse</span>
@@ -258,7 +264,7 @@ export default function CartPage() {
             <div className="flex justify-between items-center mb-8 pb-8 border-b border-gray-200">
               <span className="text-xl font-bold text-gray-900">Total</span>
               <span className="text-2xl font-bold text-gray-900">
-                {totalPrice.toFixed(2)} €
+                {formatPrice(totalPrice, currency)}
               </span>
             </div>
 

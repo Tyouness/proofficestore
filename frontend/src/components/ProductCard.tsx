@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { useLocale } from 'next-intl';
 import { getProductImagePath } from '@/lib/product-images';
 import { getProductImageSEO } from '@/lib/image-seo';
+import { getCurrencyFromLocale, getFormattedFinalPrice, type ProductWithPrices } from '@/lib/currency';
 
-interface Product {
+interface Product extends ProductWithPrices {
   id: string;
   slug: string;
   name: string;
@@ -12,10 +14,6 @@ interface Product {
   edition?: string;
   delivery_type: string;
   description?: string;
-  base_price: number;
-  sale_price?: number | null;
-  on_sale?: boolean;
-  promo_label?: string | null;
   image_url?: string;
 }
 
@@ -31,15 +29,21 @@ const FAMILY_LABELS: Record<string, string> = {
 };
 
 export default function ProductCard({ product }: { product: Product }) {
+  const locale = useLocale();
+  const currency = getCurrencyFromLocale(locale);
+  
   const deliveryLabel = DELIVERY_TYPE_LABELS[product.delivery_type] || product.delivery_type;
   const familyLabel = FAMILY_LABELS[product.family] || product.family;
   
-  // Calculer le prix final et la réduction
-  const hasPromotion = product.on_sale && product.sale_price && product.sale_price < product.base_price;
-  const finalPrice = hasPromotion ? product.sale_price! : product.base_price;
-  const discountPercentage = hasPromotion 
-    ? Math.round(((product.base_price - product.sale_price!) / product.base_price) * 100)
-    : 0;
+  // Obtenir le prix formaté selon la devise de la locale
+  const {
+    formattedNormalPrice,
+    formattedSalePrice,
+    formattedFinalPrice,
+    hasDiscount,
+    discountPercentage,
+    promoLabel
+  } = getFormattedFinalPrice(product, currency);
 
   return (
     <Link href={`/produit/${product.slug}`} className="group block">
@@ -88,10 +92,10 @@ export default function ProductCard({ product }: { product: Product }) {
         })()}
         
         {/* Badge promotion flottant */}
-        {hasPromotion && product.promo_label && (
+        {hasDiscount && promoLabel && (
           <div className="absolute top-4 right-4 z-10">
             <div className="bg-red-500 text-white px-3 py-1.5 rounded-lg shadow-lg font-bold text-sm">
-              {product.promo_label}
+              {promoLabel}
             </div>
           </div>
         )}
@@ -127,20 +131,20 @@ export default function ProductCard({ product }: { product: Product }) {
           </div>
 
           {/* Prix et CTA */}
-          <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-            <div>
-              {hasPromotion ? (
+          <div className="mt-auto">
+            <div className="mb-4">
+              {hasDiscount ? (
                 <div className="flex flex-col">
                   <div className="text-2xl font-bold text-green-600">
-                    {finalPrice.toFixed(2)} €
+                    {formattedSalePrice}
                   </div>
                   <div className="text-sm text-gray-500 line-through">
-                    {product.base_price.toFixed(2)} €
+                    {formattedNormalPrice}
                   </div>
                 </div>
               ) : (
                 <div className="text-2xl font-bold text-gray-900">
-                  {product.base_price.toFixed(2)} €
+                  {formattedNormalPrice}
                 </div>
               )}
             </div>

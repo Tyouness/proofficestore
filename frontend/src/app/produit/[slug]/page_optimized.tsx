@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { Metadata } from 'next';
 import ProductActions from '@/components/ProductActions';
+import { type ProductWithPrices } from '@/lib/currency';
 
 // ISR: Revalider la page toutes les heures
 export const revalidate = 3600;
@@ -13,7 +14,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-interface Product {
+interface Product extends ProductWithPrices {
   id: string;
   slug: string;
   name: string;
@@ -268,7 +269,7 @@ export default async function ProductPage({ params }: PageProps) {
                 <ProductActions 
                   productId={product.id} 
                   productName={product.name} 
-                  basePrice={product.base_price} 
+                  product={product}
                 />
 
                 {/* Réassurance sous le CTA */}

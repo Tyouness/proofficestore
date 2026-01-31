@@ -1,16 +1,15 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
 import { createStockRequest } from '@/actions/stock-request';
+import { useLocale } from 'next-intl';
+import { getCurrencyFromLocale, getFormattedFinalPrice, type ProductWithPrices } from '@/lib/currency';
 
 interface ProductActionsProps {
   productId: string;
   productName: string;
-  basePrice: number;
-  salePrice?: number | null;
-  onSale?: boolean;
-  promoLabel?: string | null;
+  product: ProductWithPrices;
   inventory?: number;
   currentFormat?: 'digital' | 'dvd' | 'usb';
 }
@@ -18,14 +17,12 @@ interface ProductActionsProps {
 export default function ProductActions({ 
   productId, 
   productName, 
-  basePrice, 
-  salePrice,
-  onSale = false,
-  promoLabel,
+  product,
   inventory = 999,
   currentFormat = 'digital' 
 }: ProductActionsProps) {
   const { addToCart } = useCart();
+  const locale = useLocale();
   
   // État pour le formulaire de demande de stock
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -34,12 +31,9 @@ export default function ProductActions({
 
   const isInStock = inventory > 0;
   
-  // Utiliser directement le prix du produit actuel (sale_price si promo, sinon base_price)
-  const hasPromotion = onSale && salePrice && salePrice < basePrice;
-  const finalPrice = hasPromotion ? salePrice : basePrice;
-  const discountPercentage = hasPromotion 
-    ? Math.round(((basePrice - salePrice) / basePrice) * 100)
-    : 0;
+  // Récupérer la currency selon la locale et formater les prix
+  const currency = getCurrencyFromLocale(locale);
+  const { formattedNormalPrice, formattedSalePrice, discountPercentage, hasDiscount, promoLabel, finalPrice } = getFormattedFinalPrice(product, currency);
 
   const handleAddToCart = () => {
     addToCart({
@@ -50,7 +44,7 @@ export default function ProductActions({
     });
     
     toast.success(`${productName} ajouté au panier`, {
-      description: `${finalPrice.toFixed(2)} €`,
+      description: hasDiscount ? formattedSalePrice : formattedNormalPrice,
       duration: 3000,
     });
   };
@@ -108,26 +102,23 @@ export default function ProductActions({
 
       {/* Prix avec affichage promotion */}
       <div>
-        {hasPromotion ? (
+        {hasDiscount ? (
           <div>
             <div className="flex items-center gap-3">
               <p className="text-4xl font-bold text-green-600">
-                {finalPrice.toFixed(2)} €
+                {formattedSalePrice}
               </p>
               <span className="bg-red-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
                 {promoLabel || `-${discountPercentage}%`}
               </span>
             </div>
             <p className="mt-1 text-xl text-gray-500 line-through">
-              {basePrice.toFixed(2)} €
-            </p>
-            <p className="mt-1 text-sm text-green-600 font-medium">
-              Économisez {(basePrice - finalPrice).toFixed(2)} €
+              {formattedNormalPrice}
             </p>
           </div>
         ) : (
           <p className="text-4xl font-bold text-gray-900">
-            {finalPrice.toFixed(2)} €
+            {formattedNormalPrice}
           </p>
         )}
       </div>

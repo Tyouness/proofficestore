@@ -2,8 +2,9 @@ import { notFound } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase-server';
 import ProductActions from '@/components/ProductActions';
 import type { Metadata } from 'next';
+import { type ProductWithPrices } from '@/lib/currency';
 
-interface Product {
+interface Product extends ProductWithPrices {
   id: string;
   slug: string;
   name: string;
@@ -23,7 +24,7 @@ async function getProduct(slug: string): Promise<Product | null> {
   
   const { data, error } = await supabase
     .from('products')
-    .select('id, slug, name, category, base_price, description, features')
+    .select('*')
     .eq('slug', slug)
     .single();
 
@@ -95,7 +96,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <ProductActions 
               productId={product.slug}
               productName={product.name}
-              basePrice={product.base_price}
+              product={product}
             />
           </div>
         </div>

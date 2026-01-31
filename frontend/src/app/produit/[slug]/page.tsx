@@ -13,6 +13,7 @@ import ProductEeatSection from '@/components/seo/ProductEeatSection';
 import ProductFaq from '@/components/seo/ProductFaq';
 import ProductReviewsPreview from '@/components/seo/ProductReviewsPreview';
 import ProductInternalLinks from '@/components/seo/ProductInternalLinks';
+import { type ProductWithPrices } from '@/lib/currency';
 
 // ISR: Revalider la page toutes les heures
 export const revalidate = 3600;
@@ -23,7 +24,7 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-interface Product {
+interface Product extends ProductWithPrices {
   id: string;
   slug: string;
   name: string;
@@ -368,7 +369,7 @@ export default async function ProductPage({ params }: PageProps) {
       />
       
       <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">{/* Padding mobile 16px (px-4) ajouté */}
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm">
           <ol className="flex items-center space-x-2 text-gray-600">
@@ -430,39 +431,6 @@ export default async function ProductPage({ params }: PageProps) {
                 {product.description}
               </p>
 
-              {/* Price avec promotion */}
-              <div className="mb-6">
-                {((product as any).on_sale && (product as any).sale_price && (product as any).sale_price < product.base_price) ? (
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-4xl font-bold text-green-600">
-                        {((product as any).sale_price).toFixed(2)} €
-                      </span>
-                      {(product as any).promo_label && (
-                        <span className="bg-red-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                          {(product as any).promo_label}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xl text-gray-500 line-through">
-                        {product.base_price.toFixed(2)} €
-                      </span>
-                      <span className="text-sm text-green-600 font-medium">
-                        Économisez {(product.base_price - (product as any).sale_price).toFixed(2)} €
-                      </span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-baseline">
-                    <span className="text-4xl font-bold text-gray-900">
-                      {product.base_price.toFixed(2)} €
-                    </span>
-                    <span className="ml-2 text-gray-500">TTC</span>
-                  </div>
-                )}
-              </div>
-
               {/* Specifications */}
               <div className="mb-6 border-t border-b border-gray-200 py-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Caractéristiques</h3>
@@ -496,10 +464,7 @@ export default async function ProductPage({ params }: PageProps) {
               <ProductActions 
                 productId={product.slug} 
                 productName={product.name} 
-                basePrice={product.base_price}
-                salePrice={(product as any).sale_price}
-                onSale={(product as any).on_sale}
-                promoLabel={(product as any).promo_label}
+                product={product}
                 inventory={(product as any).inventory}
                 currentFormat={deliveryFormat}
               />
