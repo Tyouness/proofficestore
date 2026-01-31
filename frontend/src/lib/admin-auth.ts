@@ -8,11 +8,14 @@ import { createServerClient } from './supabase-server';
  * Retourne l'user_id si admin, sinon redirige vers /
  */
 export async function requireAdmin(): Promise<string> {
+  console.log('[requireAdmin] 🔍 Vérification admin...');
   const supabase = await createServerClient();
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
+  console.log('[requireAdmin] 👤 User:', user?.id || 'NON CONNECTÉ', 'Error:', userError?.message || 'aucune');
 
   if (!user || userError) {
+    console.log('[requireAdmin] ❌ REDIRECTION vers /login');
     redirect('/login');
   }
 
@@ -29,9 +32,13 @@ export async function requireAdmin(): Promise<string> {
     .eq('user_id', user.id)
     .single();
 
+  console.log('[requireAdmin] 🔑 Rôle:', userRole?.role || 'AUCUN', 'Error:', roleError?.message || 'aucune');
+
   if (roleError || !userRole || userRole.role !== 'admin') {
+    console.log('[requireAdmin] ❌ REDIRECTION vers / - pas admin');
     redirect('/');
   }
 
+  console.log('[requireAdmin] ✅ Admin confirmé:', user.id);
   return user.id;
 }

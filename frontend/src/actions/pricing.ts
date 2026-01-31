@@ -175,11 +175,14 @@ export async function updateProductPricing(
  */
 export async function getAllProductPricing() {
   try {
+    console.log('[getAllProductPricing] 🚀 Démarrage...');
     const supabase = await createServerClient();
 
     // Vérification admin
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('[getAllProductPricing] 👤 User:', user?.id || 'NON CONNECTÉ');
     if (!user) {
+      console.log('[getAllProductPricing] ❌ Pas d\'utilisateur connecté');
       return { success: false, message: 'Non authentifié', data: [] };
     }
 
@@ -189,11 +192,14 @@ export async function getAllProductPricing() {
       .eq('user_id', user.id)
       .single();
 
+    console.log('[getAllProductPricing] 🔑 Rôle utilisateur:', userRole?.role || 'AUCUN');
     if (userRole?.role !== 'admin') {
+      console.log('[getAllProductPricing] ❌ Accès refusé - pas admin');
       return { success: false, message: 'Accès refusé', data: [] };
     }
 
     // Récupérer les produits avec prix calculés + group_id + prix multi-devises (avec client admin)
+    console.log('[getAllProductPricing] 📦 Récupération des produits...');
     const { data, error } = await supabaseAdmin
       .from('products')
       .select('id, slug, name, base_price, sale_price, on_sale, promo_label, group_id, delivery_format, price_eur, price_usd, price_gbp, price_cad, price_aud, price_chf, sale_price_eur, sale_price_usd, sale_price_gbp, sale_price_cad, sale_price_aud, sale_price_chf')
@@ -201,9 +207,11 @@ export async function getAllProductPricing() {
       .order('name');
 
     if (error) {
-      console.error('Erreur getAllProductPricing:', error);
+      console.error('[getAllProductPricing] ❌ Erreur DB:', error);
       return { success: false, message: 'Erreur de récupération', data: [] };
     }
+    
+    console.log('[getAllProductPricing] ✅ Produits récupérés:', data?.length || 0);
 
     // Calculer final_price et discount_percentage côté application
     const productsWithPricing = (data || []).map(p => ({
@@ -214,13 +222,14 @@ export async function getAllProductPricing() {
         : 0
     }));
 
+    console.log('[getAllProductPricing] ✅ Succès - Retour de', productsWithPricing.length, 'produits');
     return { 
       success: true, 
       data: productsWithPricing as ProductPricing[] || [] 
     };
 
   } catch (error) {
-    console.error('Erreur getAllProductPricing:', error);
+    console.error('[getAllProductPricing] ❌ Exception:', error);
     return { success: false, message: 'Erreur serveur', data: [] };
   }
 }

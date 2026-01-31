@@ -18,15 +18,28 @@ export const metadata = {
 };
 
 export default async function PricingAdminPage() {
+  console.log('[PricingAdminPage] 🎯 Chargement de la page...');
+  
   // Vérification admin
+  console.log('[PricingAdminPage] 🔐 Appel requireAdmin()...');
   await requireAdmin();
+  console.log('[PricingAdminPage] ✅ requireAdmin() passé');
 
   // Récupérer tous les produits avec leurs prix
+  console.log('[PricingAdminPage] 📊 Appel getAllProductPricing()...');
   const result = await getAllProductPricing();
+  console.log('[PricingAdminPage] 📊 Résultat getAllProductPricing:', { 
+    success: result.success, 
+    message: result.message,
+    productsCount: result.data?.length || 0 
+  });
 
   if (!result.success) {
+    console.log('[PricingAdminPage] ❌ REDIRECTION vers / car success=false');
     redirect('/');
   }
+  
+  console.log('[PricingAdminPage] ✅ Rendu de la page avec', result.data.length, 'produits');
 
   return (
     <div className="space-y-6">
