@@ -86,25 +86,6 @@ export async function updateProductPricing(
       priceChf: formData.get('priceChf') 
         ? parseFloat(formData.get('priceChf') as string) 
         : null,
-      // Prix promotionnels multi-devises
-      salePriceEur: formData.get('salePriceEur') 
-        ? parseFloat(formData.get('salePriceEur') as string) 
-        : null,
-      salePriceUsd: formData.get('salePriceUsd') 
-        ? parseFloat(formData.get('salePriceUsd') as string) 
-        : null,
-      salePriceGbp: formData.get('salePriceGbp') 
-        ? parseFloat(formData.get('salePriceGbp') as string) 
-        : null,
-      salePriceCad: formData.get('salePriceCad') 
-        ? parseFloat(formData.get('salePriceCad') as string) 
-        : null,
-      salePriceAud: formData.get('salePriceAud') 
-        ? parseFloat(formData.get('salePriceAud') as string) 
-        : null,
-      salePriceChf: formData.get('salePriceChf') 
-        ? parseFloat(formData.get('salePriceChf') as string) 
-        : null,
     };
 
     const validatedData = updateProductPricingSchema.parse(rawData);
@@ -154,13 +135,6 @@ export async function updateProductPricing(
         price_cad: validatedData.priceCad,
         price_aud: validatedData.priceAud,
         price_chf: validatedData.priceChf,
-        // Prix promotionnels multi-devises
-        sale_price_eur: validatedData.salePriceEur,
-        sale_price_usd: validatedData.salePriceUsd,
-        sale_price_gbp: validatedData.salePriceGbp,
-        sale_price_cad: validatedData.salePriceCad,
-        sale_price_aud: validatedData.salePriceAud,
-        sale_price_chf: validatedData.salePriceChf,
       })
       .eq('id', validatedData.productId);
 
