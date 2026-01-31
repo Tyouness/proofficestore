@@ -22,6 +22,26 @@ body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Fix padding mobile - Force 16px de padding sur mobile pour tout le contenu */
+@media (max-width: 640px) {
+  body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  /* Override pour les containers qui débordent */
+  main, .container {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* S'assurer que les images et vidéos ne débordent jamais */
+  img, video, iframe {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
 /* Espacement très aéré pour les sections */
 .section-spacing > * {
   margin-bottom: 6rem; /* 96px */

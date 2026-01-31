@@ -1,0 +1,21 @@
+{
+  "common": {
+    "home": "Inicio",
+    "products": "Productos",
+    "cart": "Carrito",
+    "account": "Cuenta",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "support": "Soporte",
+    "blog": "Blog"
+  },
+  "test": {
+    "title": "Página de Prueba SEO - Español",
+    "description": "Esta página prueba el enrutamiento i18n y las etiquetas hreflang",
+    "currentLocale": "Idioma actual",
+    "currentCurrency": "Moneda actual",
+    "availableLanguages": "Idiomas disponibles",
+    "seoTest": "Prueba SEO",
+    "hreflangTest": "Las etiquetas hreflang deben estar presentes en el <head> de esta página"
+  }
+}

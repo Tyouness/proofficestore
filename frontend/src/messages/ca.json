@@ -1,0 +1,21 @@
+{
+  "common": {
+    "home": "Home",
+    "products": "Products",
+    "cart": "Cart",
+    "account": "Account",
+    "login": "Login",
+    "logout": "Logout",
+    "support": "Support",
+    "blog": "Blog"
+  },
+  "test": {
+    "title": "SEO Test Page - Canada",
+    "description": "This page tests i18n routing and hreflang tags",
+    "currentLocale": "Current Language",
+    "currentCurrency": "Current Currency",
+    "availableLanguages": "Available Languages",
+    "seoTest": "SEO Test",
+    "hreflangTest": "Hreflang tags should be present in the <head> of this page"
+  }
+}

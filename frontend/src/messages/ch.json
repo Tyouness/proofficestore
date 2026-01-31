@@ -1,0 +1,21 @@
+{
+  "common": {
+    "home": "Accueil",
+    "products": "Produits",
+    "cart": "Panier",
+    "account": "Compte",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "support": "Support",
+    "blog": "Blog"
+  },
+  "test": {
+    "title": "Page de Test SEO - Suisse",
+    "description": "Cette page teste le routing i18n et les balises hreflang",
+    "currentLocale": "Langue actuelle",
+    "currentCurrency": "Devise actuelle",
+    "availableLanguages": "Langues disponibles",
+    "seoTest": "Test SEO",
+    "hreflangTest": "Les balises hreflang doivent être présentes dans le <head> de cette page"
+  }
+}

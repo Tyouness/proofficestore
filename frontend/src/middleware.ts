@@ -1,9 +1,13 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
+import createIntlMiddleware from 'next-intl/middleware';
+import { locales, defaultLocale } from '@/config/i18n';
 
 /**
- * Middleware Next.js pour maintenir la session Supabase
+ * Middleware Next.js pour :
+ * 1. Gérer l'internationalisation (routing /fr/, /en/, etc.)
+ * 2. Maintenir la session Supabase
  * 
  * SÉCURITÉ :
  * ✅ sameSite: 'strict' (CSRF protection)
@@ -12,17 +16,24 @@ import { env } from '@/lib/env';
  * ✅ Domain configuré pour multi-sous-domaines
  * ✅ Rafraîchissement automatique des tokens
  * 
- * NOTE :
- * - 'sameSite: strict' bloque cookies sur redirections tierces (Stripe)
- * - Stripe redirige vers /checkout/success avec session_id en query
- * - On récupère l'info via query params, pas cookies
+ * I18N :
+ * ✅ Détection automatique de la langue du navigateur
+ * ✅ Routing par segments (/fr/, /en/, /de/, etc.)
+ * ✅ SEO hreflang automatique
  */
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  });
+// Créer le middleware i18n
+const intlMiddleware = createIntlMiddleware({
+  locales,
+  defaultLocale,
+  localePrefix: 'always', // Force toujours /fr/, /en/, etc.
+});
 
+export async function middleware(request: NextRequest) {
+  // 1. D'abord gérer l'i18n
+  let response = intlMiddleware(request);
+  
+  // 2. Ensuite gérer Supabase sur la réponse i18n
   const supabase = createServerClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -34,13 +45,13 @@ export async function middleware(request: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set(name, value);
-            supabaseResponse.cookies.set(name, value, {
+            response.cookies.set(name, value, {
               ...options,
               domain: env.NODE_ENV === 'production' 
-                ? '.allkeymasters.com' // Permet cookies sur www + root domain
-                : undefined, // Local: pas de domain spécifique
-              sameSite: 'strict', // 🔒 CSRF protection (bloque cross-site)
-              secure: env.NODE_ENV === 'production', // HTTPS obligatoire en prod
+                ? '.allkeymasters.com'
+                : undefined,
+              sameSite: 'strict',
+              secure: env.NODE_ENV === 'production',
             });
           });
         },
@@ -51,7 +62,7 @@ export async function middleware(request: NextRequest) {
   // Rafraîchir la session
   await supabase.auth.getUser();
 
-  return supabaseResponse;
+  return response;
 }
 
 /**
@@ -61,7 +72,6 @@ export async function middleware(request: NextRequest) {
  * - Les fichiers statiques (_next/static)
  * - Les images (_next/image)
  * - Les favicons (favicon.ico)
- * - Les API routes non-authentifiées
  * - Les fichiers publics (images, fonts, etc.)
  */
 export const config = {

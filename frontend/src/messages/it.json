@@ -1,0 +1,21 @@
+{
+  "common": {
+    "home": "Home",
+    "products": "Prodotti",
+    "cart": "Carrello",
+    "account": "Account",
+    "login": "Accedi",
+    "logout": "Esci",
+    "support": "Supporto",
+    "blog": "Blog"
+  },
+  "test": {
+    "title": "Pagina di Test SEO - Italiano",
+    "description": "Questa pagina testa il routing i18n e i tag hreflang",
+    "currentLocale": "Lingua attuale",
+    "currentCurrency": "Valuta attuale",
+    "availableLanguages": "Lingue disponibili",
+    "seoTest": "Test SEO",
+    "hreflangTest": "I tag hreflang dovrebbero essere presenti nel <head> di questa pagina"
+  }
+}
