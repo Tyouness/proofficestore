@@ -86,6 +86,25 @@ export async function updateProductPricing(
       priceChf: formData.get('priceChf') 
         ? parseFloat(formData.get('priceChf') as string) 
         : null,
+      // Prix promotionnels multi-devises
+      salePriceEur: formData.get('salePriceEur') 
+        ? parseFloat(formData.get('salePriceEur') as string) 
+        : null,
+      salePriceUsd: formData.get('salePriceUsd') 
+        ? parseFloat(formData.get('salePriceUsd') as string) 
+        : null,
+      salePriceGbp: formData.get('salePriceGbp') 
+        ? parseFloat(formData.get('salePriceGbp') as string) 
+        : null,
+      salePriceCad: formData.get('salePriceCad') 
+        ? parseFloat(formData.get('salePriceCad') as string) 
+        : null,
+      salePriceAud: formData.get('salePriceAud') 
+        ? parseFloat(formData.get('salePriceAud') as string) 
+        : null,
+      salePriceChf: formData.get('salePriceChf') 
+        ? parseFloat(formData.get('salePriceChf') as string) 
+        : null,
     };
 
     const validatedData = updateProductPricingSchema.parse(rawData);
@@ -135,6 +154,13 @@ export async function updateProductPricing(
         price_cad: validatedData.priceCad,
         price_aud: validatedData.priceAud,
         price_chf: validatedData.priceChf,
+        // Prix promotionnels multi-devises
+        sale_price_eur: validatedData.salePriceEur,
+        sale_price_usd: validatedData.salePriceUsd,
+        sale_price_gbp: validatedData.salePriceGbp,
+        sale_price_cad: validatedData.salePriceCad,
+        sale_price_aud: validatedData.salePriceAud,
+        sale_price_chf: validatedData.salePriceChf,
       })
       .eq('id', validatedData.productId);
 
@@ -196,7 +222,7 @@ export async function getAllProductPricing() {
     // Récupérer les produits avec prix calculés + group_id + prix multi-devises (avec client admin)
     const { data, error } = await supabaseAdmin
       .from('products')
-      .select('id, slug, name, base_price, sale_price, on_sale, promo_label, group_id, delivery_format, price_eur, price_usd, price_gbp, price_cad, price_aud, price_chf')
+      .select('id, slug, name, base_price, sale_price, on_sale, promo_label, group_id, delivery_format, price_eur, price_usd, price_gbp, price_cad, price_aud, price_chf, sale_price_eur, sale_price_usd, sale_price_gbp, sale_price_cad, sale_price_aud, sale_price_chf')
       .eq('is_active', true)
       .order('name');
 

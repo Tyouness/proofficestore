@@ -29,6 +29,12 @@ interface Product {
   price_cad?: number | null;
   price_aud?: number | null;
   price_chf?: number | null;
+  sale_price_eur?: number | null;
+  sale_price_usd?: number | null;
+  sale_price_gbp?: number | null;
+  sale_price_cad?: number | null;
+  sale_price_aud?: number | null;
+  sale_price_chf?: number | null;
 }
 
 interface PricingManagerProps {
@@ -52,6 +58,12 @@ export default function PricingManager({ products }: PricingManagerProps) {
     priceCad: string;
     priceAud: string;
     priceChf: string;
+    salePriceEur: string;
+    salePriceUsd: string;
+    salePriceGbp: string;
+    salePriceCad: string;
+    salePriceAud: string;
+    salePriceChf: string;
   }>({
     basePrice: '',
     salePrice: '',
@@ -63,6 +75,12 @@ export default function PricingManager({ products }: PricingManagerProps) {
     priceCad: '',
     priceAud: '',
     priceChf: '',
+    salePriceEur: '',
+    salePriceUsd: '',
+    salePriceGbp: '',
+    salePriceCad: '',
+    salePriceAud: '',
+    salePriceChf: '',
   });
 
   // Calculer automatiquement le pourcentage de réduction
@@ -105,6 +123,12 @@ export default function PricingManager({ products }: PricingManagerProps) {
       priceCad: product.price_cad?.toString() || '',
       priceAud: product.price_aud?.toString() || '',
       priceChf: product.price_chf?.toString() || '',
+      salePriceEur: product.sale_price_eur?.toString() || '',
+      salePriceUsd: product.sale_price_usd?.toString() || '',
+      salePriceGbp: product.sale_price_gbp?.toString() || '',
+      salePriceCad: product.sale_price_cad?.toString() || '',
+      salePriceAud: product.sale_price_aud?.toString() || '',
+      salePriceChf: product.sale_price_chf?.toString() || '',
     });
   };
 
@@ -122,6 +146,12 @@ export default function PricingManager({ products }: PricingManagerProps) {
       priceCad: '',
       priceAud: '',
       priceChf: '',
+      salePriceEur: '',
+      salePriceUsd: '',
+      salePriceGbp: '',
+      salePriceCad: '',
+      salePriceAud: '',
+      salePriceChf: '',
     });
   };
 
@@ -140,13 +170,20 @@ export default function PricingManager({ products }: PricingManagerProps) {
       if (formData.promoLabel) {
         formDataObj.append('promoLabel', formData.promoLabel);
       }
-      // Prix multi-devises
+      // Prix multi-devises (normaux)
       if (formData.priceEur) formDataObj.append('priceEur', formData.priceEur);
       if (formData.priceUsd) formDataObj.append('priceUsd', formData.priceUsd);
       if (formData.priceGbp) formDataObj.append('priceGbp', formData.priceGbp);
       if (formData.priceCad) formDataObj.append('priceCad', formData.priceCad);
       if (formData.priceAud) formDataObj.append('priceAud', formData.priceAud);
       if (formData.priceChf) formDataObj.append('priceChf', formData.priceChf);
+      // Prix multi-devises (promotionnels)
+      if (formData.salePriceEur) formDataObj.append('salePriceEur', formData.salePriceEur);
+      if (formData.salePriceUsd) formDataObj.append('salePriceUsd', formData.salePriceUsd);
+      if (formData.salePriceGbp) formDataObj.append('salePriceGbp', formData.salePriceGbp);
+      if (formData.salePriceCad) formDataObj.append('salePriceCad', formData.salePriceCad);
+      if (formData.salePriceAud) formDataObj.append('salePriceAud', formData.salePriceAud);
+      if (formData.salePriceChf) formDataObj.append('salePriceChf', formData.salePriceChf);
 
       const result = await updateProductPricing(formDataObj);
 
@@ -268,7 +305,7 @@ export default function PricingManager({ products }: PricingManagerProps) {
                 {/* Prix multi-devises */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                    <span className="mr-2">🌍</span> Prix par Marché (Multi-devises)
+                    <span className="mr-2">🌍</span> Prix Normaux par Marché
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     <div>
@@ -368,6 +405,116 @@ export default function PricingManager({ products }: PricingManagerProps) {
                           onChange={(e) => setFormData({ ...formData, priceChf: e.target.value })}
                           placeholder="Ex: 157.40"
                           className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">CHF</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prix PROMOTIONNELS multi-devises */}
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <span className="mr-2">🏷️</span> Prix Promotionnels par Marché (optionnel)
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇪🇺 EUR
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceEur}
+                          onChange={(e) => setFormData({ ...formData, salePriceEur: e.target.value })}
+                          placeholder="Ex: 99.90"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇺🇸 USD
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceUsd}
+                          onChange={(e) => setFormData({ ...formData, salePriceUsd: e.target.value })}
+                          placeholder="Ex: 109.89"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">$</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇬🇧 GBP
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceGbp}
+                          onChange={(e) => setFormData({ ...formData, salePriceGbp: e.target.value })}
+                          placeholder="Ex: 84.92"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">£</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇨🇦 CAD
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceCad}
+                          onChange={(e) => setFormData({ ...formData, salePriceCad: e.target.value })}
+                          placeholder="Ex: 149.85"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">CAD</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇦🇺 AUD
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceAud}
+                          onChange={(e) => setFormData({ ...formData, salePriceAud: e.target.value })}
+                          placeholder="Ex: 169.83"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
+                        />
+                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">AUD</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        🇨🇭 CHF
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={formData.salePriceChf}
+                          onChange={(e) => setFormData({ ...formData, salePriceChf: e.target.value })}
+                          placeholder="Ex: 104.90"
+                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
                         />
                         <span className="absolute right-2 top-1.5 text-xs text-gray-400">CHF</span>
                       </div>

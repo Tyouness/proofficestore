@@ -249,6 +249,43 @@ export const updateProductPricingSchema = z.object({
     .multipleOf(0.01, 'Prix CHF invalide (maximum 2 décimales)')
     .optional()
     .nullable(),
+  // Prix promotionnels multi-devises (optionnels)
+  salePriceEur: z.number()
+    .positive('Prix promo EUR invalide')
+    .max(99999, 'Prix promo EUR trop élevé')
+    .multipleOf(0.01, 'Prix promo EUR invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  salePriceUsd: z.number()
+    .positive('Prix promo USD invalide')
+    .max(99999, 'Prix promo USD trop élevé')
+    .multipleOf(0.01, 'Prix promo USD invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  salePriceGbp: z.number()
+    .positive('Prix promo GBP invalide')
+    .max(99999, 'Prix promo GBP trop élevé')
+    .multipleOf(0.01, 'Prix promo GBP invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  salePriceCad: z.number()
+    .positive('Prix promo CAD invalide')
+    .max(99999, 'Prix promo CAD trop élevé')
+    .multipleOf(0.01, 'Prix promo CAD invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  salePriceAud: z.number()
+    .positive('Prix promo AUD invalide')
+    .max(99999, 'Prix promo AUD trop élevé')
+    .multipleOf(0.01, 'Prix promo AUD invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
+  salePriceChf: z.number()
+    .positive('Prix promo CHF invalide')
+    .max(99999, 'Prix promo CHF trop élevé')
+    .multipleOf(0.01, 'Prix promo CHF invalide (maximum 2 décimales)')
+    .optional()
+    .nullable(),
 }).strict().refine(
   (data) => {
     // Si sale_price existe, il doit être inférieur à base_price
