@@ -3,8 +3,7 @@ import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { toast } from 'sonner';
 import { createStockRequest } from '@/actions/stock-request';
-import { useLocale } from 'next-intl';
-import { getCurrencyFromLocale, getFormattedFinalPrice, type ProductWithPrices } from '@/lib/currency';
+import { getFormattedFinalPrice, type ProductWithPrices, type Currency } from '@/lib/currency';
 
 interface ProductActionsProps {
   productId: string;
@@ -22,7 +21,6 @@ export default function ProductActions({
   currentFormat = 'digital' 
 }: ProductActionsProps) {
   const { addToCart } = useCart();
-  const locale = useLocale();
   
   // État pour le formulaire de demande de stock
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
@@ -31,8 +29,8 @@ export default function ProductActions({
 
   const isInStock = inventory > 0;
   
-  // Récupérer la currency selon la locale et formater les prix
-  const currency = getCurrencyFromLocale(locale);
+  // Pour l'instant, on utilise EUR par défaut (i18n sera réactivé plus tard)
+  const currency: Currency = 'EUR';
   const { formattedNormalPrice, formattedSalePrice, discountPercentage, hasDiscount, promoLabel, finalPrice } = getFormattedFinalPrice(product, currency);
 
   const handleAddToCart = () => {

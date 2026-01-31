@@ -1,9 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { useLocale } from 'next-intl';
 import { getProductImagePath } from '@/lib/product-images';
 import { getProductImageSEO } from '@/lib/image-seo';
-import { getCurrencyFromLocale, getFormattedFinalPrice, type ProductWithPrices } from '@/lib/currency';
+import { getFormattedFinalPrice, type ProductWithPrices, type Currency } from '@/lib/currency';
 
 interface Product extends ProductWithPrices {
   id: string;
@@ -29,8 +28,8 @@ const FAMILY_LABELS: Record<string, string> = {
 };
 
 export default function ProductCard({ product }: { product: Product }) {
-  const locale = useLocale();
-  const currency = getCurrencyFromLocale(locale);
+  // Pour l'instant, on utilise EUR par défaut (i18n sera réactivé plus tard)
+  const currency: Currency = 'EUR';
   
   const deliveryLabel = DELIVERY_TYPE_LABELS[product.delivery_type] || product.delivery_type;
   const familyLabel = FAMILY_LABELS[product.family] || product.family;

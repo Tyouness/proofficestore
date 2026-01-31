@@ -1,13 +1,21 @@
 import Hero from "@/components/Hero";
 import ProductCarousel from "@/components/ProductCarousel";
 import FeatureCarousel from "@/components/FeatureCarousel";
-import { createServerClient } from '@/lib/supabase-server';
+import { createClient } from '@supabase/supabase-js';
 
 // ISR: Revalider la page toutes les heures
 export const revalidate = 3600;
 
+// Client Supabase simple (sans cookies SSR)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default async function Home() {
-  const supabase = await createServerClient();
+  
+  // Debug: Vérifier que Supabase est bien initialisé
+  console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + "...");
   
   // Charger uniquement les 4 produits vedettes (is_featured = true)
   const { data: products, error } = await supabase
@@ -18,8 +26,16 @@ export default async function Home() {
     .limit(4);
 
   if (error) {
-    console.error("Erreur lors de la récupération des produits :", error);
+    console.error("Erreur lors de la récupération des produits :", {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      full: error
+    });
   }
+  
+  console.log("Produits récupérés:", products?.length || 0);
 
   // Données des fonctionnalités pour le carrousel
   const features = [
