@@ -83,7 +83,7 @@ export default function PricingManager({ products }: PricingManagerProps) {
     salePriceChf: '',
   });
 
-  // Calculer automatiquement le pourcentage de réduction
+  // Calculer automatiquement le pourcentage de réduction pour EUR (base)
   const calculatedDiscount = (() => {
     const base = parseFloat(formData.basePrice);
     const sale = parseFloat(formData.salePrice);
@@ -92,6 +92,23 @@ export default function PricingManager({ products }: PricingManagerProps) {
     }
     return 0;
   })();
+
+  // Helper: calculer le pourcentage de réduction pour une devise
+  const calculateDiscountForCurrency = (normalPrice: string, salePrice: string): number => {
+    const base = parseFloat(normalPrice);
+    const sale = parseFloat(salePrice);
+    if (base > 0 && sale > 0 && sale < base) {
+      return Math.round(((base - sale) / base) * 100);
+    }
+    return 0;
+  };
+
+  // Calculer les réductions pour chaque devise
+  const discountUsd = calculateDiscountForCurrency(formData.priceUsd, formData.salePriceUsd);
+  const discountGbp = calculateDiscountForCurrency(formData.priceGbp, formData.salePriceGbp);
+  const discountCad = calculateDiscountForCurrency(formData.priceCad, formData.salePriceCad);
+  const discountAud = calculateDiscountForCurrency(formData.priceAud, formData.salePriceAud);
+  const discountChf = calculateDiscountForCurrency(formData.priceChf, formData.salePriceChf);
 
   // Synchroniser automatiquement le promo_label avec le pourcentage calculé
   useEffect(() => {
@@ -302,29 +319,13 @@ export default function PricingManager({ products }: PricingManagerProps) {
                   </div>
                 </div>
 
-                {/* Prix multi-devises */}
+                {/* Prix normaux multi-devises (sans EUR, déjà en haut) */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
                     <span className="mr-2">🌍</span> Prix Normaux par Marché
+                    <span className="ml-2 text-xs text-gray-500 font-normal">(EUR géré ci-dessus)</span>
                   </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        🇪🇺 EUR
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.priceEur}
-                          onChange={(e) => setFormData({ ...formData, priceEur: e.target.value })}
-                          placeholder="Ex: 149.90"
-                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                        />
-                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇺🇸 USD
@@ -412,32 +413,19 @@ export default function PricingManager({ products }: PricingManagerProps) {
                   </div>
                 </div>
 
-                {/* Prix PROMOTIONNELS multi-devises */}
+                {/* Prix PROMOTIONNELS multi-devises (sans EUR, déjà en haut) */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                    <span className="mr-2">🏷️</span> Prix Promotionnels par Marché (optionnel)
+                    <span className="mr-2">🏷️</span> Prix Promotionnels par Marché
+                    <span className="ml-2 text-xs text-gray-500 font-normal">(EUR géré ci-dessus)</span>
                   </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">
-                        🇪🇺 EUR
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.salePriceEur}
-                          onChange={(e) => setFormData({ ...formData, salePriceEur: e.target.value })}
-                          placeholder="Ex: 99.90"
-                          className="w-full px-2 py-1.5 text-sm border border-green-300 rounded focus:ring-2 focus:ring-green-500"
-                        />
-                        <span className="absolute right-2 top-1.5 text-xs text-gray-400">€</span>
-                      </div>
-                    </div>
-
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇺🇸 USD
+                        {discountUsd > 0 && (
+                          <span className="ml-2 text-red-600 font-semibold">-{discountUsd}%</span>
+                        )}
                       </label>
                       <div className="relative">
                         <input
@@ -455,6 +443,9 @@ export default function PricingManager({ products }: PricingManagerProps) {
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇬🇧 GBP
+                        {discountGbp > 0 && (
+                          <span className="ml-2 text-red-600 font-semibold">-{discountGbp}%</span>
+                        )}
                       </label>
                       <div className="relative">
                         <input
@@ -472,6 +463,9 @@ export default function PricingManager({ products }: PricingManagerProps) {
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇨🇦 CAD
+                        {discountCad > 0 && (
+                          <span className="ml-2 text-red-600 font-semibold">-{discountCad}%</span>
+                        )}
                       </label>
                       <div className="relative">
                         <input
@@ -489,6 +483,9 @@ export default function PricingManager({ products }: PricingManagerProps) {
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇦🇺 AUD
+                        {discountAud > 0 && (
+                          <span className="ml-2 text-red-600 font-semibold">-{discountAud}%</span>
+                        )}
                       </label>
                       <div className="relative">
                         <input
@@ -506,6 +503,9 @@ export default function PricingManager({ products }: PricingManagerProps) {
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
                         🇨🇭 CHF
+                        {discountChf > 0 && (
+                          <span className="ml-2 text-red-600 font-semibold">-{discountChf}%</span>
+                        )}
                       </label>
                       <div className="relative">
                         <input
